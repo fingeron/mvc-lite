@@ -11,9 +11,7 @@
         var attrArr = this.self.attributes;
         if(attrArr && attrArr.length > 0) for(var a = 0; a < attrArr.length; a++) {
             if(attrArr[a].name === 'controller') {
-                // Checking if a component node
-                if(typeof attrArr[a].value === 'string' && attrArr[a].value.length > 0)
-                    this.controller = attrArr[a].value;
+                this.controller = attrArr[a].value;
             } else {
                 // Checking for injectables and saving their statements
                 var injectable = global.App.getInjectable(attrArr[a].name);
@@ -24,32 +22,54 @@
                         injectable: injectable,
                         statement: attrArr[a].value
                     });
-                    if(!injectable.keepAttribute)
+                    if(!injectable.keepAttribute) {
                         this.self.removeAttribute(attrArr[a].name);
+                        // Because we removed attribute 'attrArr.length', which is
+                        // a reference to node.attributes, will return a number lower by 1.
+                        a--;
+                    }
                 }
             }
         }
     };
 
     ViewNode.prototype.generate = function($scope) {
-        var compNode = new global.Base.CompNode(this.self.cloneNode(false)),
-            directive, child, i;
-        for(i = 0; i < this.directives.length; i++) {
-            directive = this.directives[i];
+        var compNode = new global.Base.CompNode(this);
 
-            // Get value from injectable getter
-            var value = directive.injectable.getter(directive.statement, $scope);
+        if(Array.isArray(this.directives)) {
+            var directive, i;
+            compNode.values = [];
 
-            // Running modifier on created compNode with getter value
-            directive.injectable.modifier(compNode, value);
+            for(i = 0; i < this.directives.length; i++) {
+                directive = this.directives[i];
 
-            // Eventually saving the value to compNode
-            compNode.values.push(value);
+                // Get value from injectable getter
+                var value = directive.injectable.getter(directive.statement, $scope);
+
+                // Running modifier on created compNode with getter value
+                directive.injectable.modifier(compNode, value);
+
+                // Eventually saving the value to compNode
+                compNode.values.push(value);
+            }
         }
-        for(i = 0; i < this.children.length; i++) {
-            child = this.children[i];
-            compNode.appendChild(child.generate($scope));
+
+        // If has self
+        if(compNode.self) {
+            // Recursively generate children
+            var generated;
+            for(i = 0; i < this.children.length; i++) {
+                generated = this.children[i].generate($scope, compNode);
+                generated.parent = compNode;
+                compNode.appendChild(generated);
+
+                if(generated.isComponent()) {
+                    generated.comp = global.Core.Bootstrap(generated.self);
+                    generated.self = generated.comp.nodeTree.self;
+                }
+            }
         }
+
         return compNode;
     };
 

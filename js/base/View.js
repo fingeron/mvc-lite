@@ -23,16 +23,17 @@
     };
 
     View.prototype.buildNodeTree = function() {
-        var tempEl = document.createElement('temp'),
-            nodeTree = [];
-
+        var tempEl = document.createElement('temp');
         tempEl.innerHTML = this.templateSrc;
+
+        // Creating node tree
+        var viewNode = new global.Base.ViewNode(document.createElement(this.name));
         for(var i = 0; i < tempEl.childNodes.length; i++) {
-            nodeTree.push(buildNodeObject(tempEl.childNodes[i]));
+            viewNode.children.push(buildNodeObject(tempEl.childNodes[i]));
         }
 
         // NodeTree was created and saved in the view.
-        this.nodeTree = nodeTree;
+        this.nodeTree = viewNode;
 
         function buildNodeObject(DOMNode) {
             var viewNode = new global.Base.ViewNode(DOMNode),
@@ -47,11 +48,9 @@
     };
 
     View.prototype.generate = function($scope) {
-        var componentTree = new global.Base.CompNode(document.createElement(this.name)),
-            compNode;
-        for(var c = 0; c < this.nodeTree.length; c++) {
-            compNode = this.nodeTree[c].generate($scope);
-            componentTree.appendChild(compNode);
+        var componentTree = new global.Base.CompNode(this.nodeTree);
+        for(var c = 0; c < this.nodeTree.children.length; c++) {
+            componentTree.appendChild(this.nodeTree.children[c].generate($scope, componentTree));
         }
         return componentTree;
     };

@@ -24,10 +24,11 @@
         var compEl = document.querySelector('*[controller="' + componentName + '"]');
         if(compEl && compEl.nodeType === 1) {
             try {
-                global.Core.Bootstrap(compEl);
+                var result = global.Core.Bootstrap(compEl);
             } catch(err) {
                 console.error(TAG, err.message);
             }
+            return result;
         } else
             console.error(TAG, "Could not find placeholder for '" + componentName + "'.");
     }

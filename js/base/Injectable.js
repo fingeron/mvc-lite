@@ -22,7 +22,7 @@
         try {
             with($scope) { result = eval(statement); }
         } catch(err) {
-            console.error(TAG, this.name + ':', "");
+            console.error(TAG, this.name + ':', "Couldn't evaluate '" + statement + "'.");
         }
         return result;
     };

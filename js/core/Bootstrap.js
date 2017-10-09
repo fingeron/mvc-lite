@@ -2,7 +2,11 @@
 
     var Bootstrap = function(el) {
         if(el.nodeType === 1) {
-
+            var controller = getControllerFromEl(el);
+            if(controller instanceof global.Base.Controller) {
+                return controller.generateComponent(el);
+            } else
+                throw { message: "Controller " + el.getAttribute('controller') + " not found." };
         } else
             throw { message: "Cannot bootstrap a non-element object." };
     };
@@ -10,9 +14,9 @@
     function getControllerFromEl(el) {
         var attrText = el.getAttribute('controller');
         if(typeof attrText === 'string') {
-            var component = global.App.getController(attrText);
-            if(component instanceof global.Base.Component)
-                return component;
+            var controller = global.App.getController(attrText);
+            if(controller instanceof global.Base.Controller)
+                return controller;
         }
     }
 
