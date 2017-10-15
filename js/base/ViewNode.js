@@ -40,7 +40,7 @@
             var directive, i;
             compNode.values = [];
 
-            for(i = 0; i < this.directives.length; i++) {
+            for(i = 0; i < this.directives.length && compNode.self; i++) {
                 directive = this.directives[i];
 
                 // Get value from injectable getter
@@ -56,12 +56,30 @@
 
         // If has self
         if(compNode.self) {
-            // Recursively generate children
+            if(compNode.multipleNodes) {
+                var arr = compNode.iterator.array,
+                    tempVal = $scope[compNode.iterator.varName],
+                    childNode;
+
+                for(i = 0; i < arr.length; i++) {
+                    $scope[compNode.iterator.varName] = arr[i];
+                    childNode = new global.Base.CompNode(this);
+                    generateChildren(this, childNode);
+                    compNode.appendChild(childNode);
+                }
+
+                $scope[compNode.iterator.varName] = tempVal;
+            } else
+                generateChildren(this, compNode);
+        }
+
+        function generateChildren(viewNode, node) {
             var generated;
-            for(i = 0; i < this.children.length; i++) {
-                generated = this.children[i].generate($scope, compNode);
-                generated.parent = compNode;
-                compNode.appendChild(generated);
+            // Recursively appending ViewNode's children to given CompNode.
+            for(var i = 0; i < viewNode.children.length; i++) {
+                generated = viewNode.children[i].generate($scope, node);
+                generated.parent = node;
+                node.appendChild(generated);
 
                 if(generated.isComponent()) {
                     generated.comp = global.Core.Bootstrap(generated.self);

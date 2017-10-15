@@ -1,4 +1,5 @@
 <div class="app-container">
-    <h1 bind-value="name"></h1>
-    <div bind-if="bool" controller="test"></div>
+    <div bind-for="num in arr">
+        <span bind-value="num"></span>
+    </div>
 </div>

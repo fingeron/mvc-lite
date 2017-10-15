@@ -27,6 +27,11 @@
         return result;
     };
 
+    Injectable.prototype.compare = function(oldVal, newVal) {
+        if(oldVal === newVal)
+            return true;
+    };
+
     global.Base = global.Base || {};
     global.Base.Injectable = Injectable;
 

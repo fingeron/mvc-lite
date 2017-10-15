@@ -12,13 +12,15 @@
         var updated = false;
         if(Array.isArray(this.viewNode.directives)) {
             var directives = this.viewNode.directives,
-                injectable;
+                injectable, getterValue;
             for(var i = 0; i < directives.length; i++) {
                 injectable = directives[i].injectable;
+                getterValue = injectable.getter(directives[i].statement, $scope);
 
                 // If injectable getter with current scope result is
                 // different from current one, update the CompNode.
-                if(this.values[i] !== injectable.getter(directives[i].statement, $scope)) {
+                if(!injectable.compare(this.values[i], getterValue)) {
+                    this.values[i] = getterValue;
                     updated = true;
                     break;
                 }
@@ -32,10 +34,17 @@
                 child.compare($scope);
             });
         } else {
+            // If there were changes, generate a new node.
             var newNode = this.viewNode.generate($scope);
+
+            // Assign values and replace with current one
             this.parent.replaceChild(newNode, this);
-            if(newNode.isComponent())
-                global.Core.Bootstrap(newNode.self);
+
+            // Finally if node is a component bootstrap it.
+            if(newNode.isComponent()) {
+                newNode.comp = global.Core.Bootstrap(newNode.self);
+                newNode.self = newNode.comp.nodeTree.self;
+            }
         }
     };
 
@@ -48,12 +57,11 @@
     };
 
     CompNode.prototype.replaceChild = function(newNode, child) {
+        newNode.parent = child.parent;
+
         if(newNode.self && child.self) {
             this.self.replaceChild(newNode.self, child.self);
-            for(var i = 0; i < this.children.length; i++) {
-                if(this.children[i] === child)
-                    this.children[i] = newNode;
-            }
+            this.children.splice(this.children.indexOf(child), 1, newNode);
         } else if(newNode.self && !child.self) {
             var childIndex = this.children.indexOf(child);
             if(childIndex >= 0) {
@@ -77,11 +85,9 @@
     };
 
     CompNode.prototype.removeChild = function(child) {
-        this.children.splice(this.children.indexOf(child), 1);
-        child.children.forEach(function(child2) {
-            child.removeChild(child2);
-        });
         this.self.removeChild(child.self);
+        child.self = undefined;
+        child.children.splice(0, child.children.length);
     };
 
     CompNode.prototype.isComponent = function() {
