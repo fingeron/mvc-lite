@@ -1,0 +1,648 @@
+(function(global) {
+
+    global.Config = {
+        viewOptions: {
+            templatesFolder: 'app'
+        }
+    };
+
+})(Function('return this')());
+(function(global) {
+
+    var Http = {
+        get: function(url, params, callback) {
+            if(typeof params === 'object') {
+                var urlParams = '?';
+                for(var param in params) if(params.hasOwnProperty(param)) {
+                    urlParams += param + '=' + params[param] + '&';
+                }
+                url += urlParams;
+            }
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.onreadystatechange = function() {
+                if(xhr.status === 200 && xhr.readyState === 4) {
+                    callback(JSON.parse(xhr.responseText));
+                }
+            };
+            xhr.send();
+        }
+    };
+
+    global.Utils = global.Utils || {};
+    global.Utils.Http = Http;
+
+})(Function('return this')());
+(function(global) {
+
+    var Observable = function() {
+        this.listeners = [];
+        this.lastMessage = undefined;
+    };
+
+    Observable.prototype = {
+        subscribe: function(listener) {
+            if(typeof listener === 'function') {
+                this.listeners.push(listener);
+                return {
+                    unsubscribe: this.unsubscribe.bind(this, listener)
+                }
+            }
+            else
+                console.error(listener, 'is not a function. Cannot subscribe to Observable.');
+        },
+
+        unsubscribe: function(listener) {
+            for(var i = this.listeners.length - 1; i >= 0; i--) {
+                if(this.listeners[i] === listener)
+                    this.listeners.splice(i, 1);
+            }
+        },
+
+        next: function(value) {
+            this.listeners.forEach(function(listener) {
+                listener(value);
+            });
+            this.lastMessage = value;
+        }
+    };
+
+    global.Utils = global.Utils || {};
+    global.Utils.Observable = Observable;
+
+})(Function('return this')());
+(function(global) {
+
+    var String = {
+        // "name: Tal, city: Or Yehuda" ---> [{key: name, value: Tal}, {key: city, value: "Or Yehuda"}]
+        toKeyValueArray: function(str, separator) {
+            if(typeof separator !== 'string')
+                separator = ',';
+            var entries = str.split(separator),
+                matchGroups,
+                arr = [];
+            entries.forEach(function(entry) {
+                matchGroups = (/([\w-]+): *(.+)/g).exec(entry.trim());
+                arr.push({
+                    key: matchGroups[1],
+                    value: matchGroups[2]
+                });
+            });
+            return arr;
+        },
+        toDictionary: function(str, separator) {
+            if(typeof separator !== 'string')
+                separator = ',';
+            var entries = str.split(separator),
+                matchGroups,
+                dic = {};
+            entries.forEach(function(entry) {
+                matchGroups = (/([\w-]+): *(.+)/g).exec(entry.trim());
+                dic[matchGroups[1]] = matchGroups[2];
+            });
+            return dic;
+        }
+    };
+
+    global.Utils = global.Utils || {};
+    global.Utils.String = String;
+
+})(Function('return this')());
+(function(global) {
+
+    var CompNode = function(viewNode, values) {
+        this.viewNode = viewNode;
+        this.self = viewNode.self.cloneNode(false);
+        if(Array.isArray(values))
+            this.values = values;
+        this.children = [];
+    };
+
+    CompNode.prototype.compare = function($scope) {
+        var updated = false;
+        if(Array.isArray(this.viewNode.directives)) {
+            var directives = this.viewNode.directives,
+                injectable, getterValue, skipped = 0;
+            for(var i = 0; i < directives.length; i++) if(directives[i]) {
+                injectable = directives[i].injectable;
+                getterValue = injectable.getter(directives[i].statement, $scope);
+
+                // If injectable getter with current scope result is
+                // different from current one, update the CompNode.
+                if(!injectable.compare(this.values[i-skipped], getterValue)) {
+                    if(injectable.justModify && this.self) {
+                        this.values[i-skipped] = getterValue;
+                        injectable.modifier(this, getterValue);
+                    } else {
+                        updated = true;
+                        break;
+                    }
+                } else if(Array.isArray(getterValue.array)) {
+                    break;
+                }
+            } else
+                skipped++;
+        }
+
+        // If not updated, recursively compare nodes.
+        // Else, generate new CompNode and replace.
+        if(!updated) {
+            // If node is multipleNodes, compare children by iterator
+            if(this.multipleNodes) {
+                // Creating helper variables and temp placeholders.
+                var viewNode = this.viewNode,
+                    iterator = this.iterator,
+                    tempVal = $scope[iterator.varName],
+                    tempDirective = viewNode.directives[i],
+                    tempDirectivePos = i,
+                    newCompNode;
+
+                viewNode.directives[tempDirectivePos] = undefined;
+                for(i = 0; i < iterator.array.length; i++) {
+                    $scope[iterator.varName] = iterator.array[i];
+                    if(this.children[i] instanceof CompNode) {
+                        this.children[i].compare($scope);
+                        this.children[i].iteratorValue = iterator.array[i];
+                    } else {
+                        newCompNode = viewNode.generate($scope);
+                        newCompNode.iteratorValue = iterator.array[i];
+                        this.appendChild(newCompNode);
+                    }
+                }
+                // Reassigning values
+                $scope[iterator.varName] = tempVal;
+                viewNode.directives[tempDirectivePos] = tempDirective;
+            } else {
+                this.children.forEach(function(child) {
+                    child.compare($scope);
+                });
+            }
+        } else {
+            // If there were changes, generate a new node.
+            var newNode = this.viewNode.generate($scope);
+
+            if(this.iteratorValue)
+                newNode.iteratorValue = this.iteratorValue;
+
+            // Assign values and replace with current one
+            this.parent.replaceChild(newNode, this);
+
+            // Finally if node is a component bootstrap it.
+            if(newNode.isComponent()) {
+                newNode.comp = global.Core.Bootstrap(newNode.self);
+                newNode.self = newNode.comp.nodeTree.self;
+            }
+        }
+    };
+
+    CompNode.prototype.appendChild = function(child) {
+        this.children.push(child);
+        child.parent = this;
+        if(child.self) {
+            this.self.appendChild(child.self);
+        }
+    };
+
+    CompNode.prototype.replaceChild = function(newNode, child) {
+        newNode.parent = child.parent;
+
+        if(newNode.self && child.self) {
+            this.self.replaceChild(newNode.self, child.self);
+            this.children.splice(this.children.indexOf(child), 1, newNode);
+        } else if(newNode.self && !child.self) {
+            var childIndex = this.children.indexOf(child);
+            if(childIndex >= 0) {
+                this.children.splice(childIndex, 1, newNode);
+
+                var insertBefore;
+                while(!insertBefore && childIndex < this.children.length - 1) {
+                    if(this.children[++childIndex].self)
+                        insertBefore = this.children[childIndex].self;
+                }
+
+                if(insertBefore)
+                    insertBefore.parentNode.insertBefore(newNode.self, insertBefore);
+                else
+                    this.self.appendChild(newNode.self);
+            } else
+                console.error("CompNode: replaceChild failed, 2nd parameter is not a child of this node.");
+        } else if(!newNode.self && child.self) {
+            this.removeChild(child);
+        }
+    };
+
+    CompNode.prototype.removeChild = function(child) {
+        this.self.removeChild(child.self);
+        child.self = undefined;
+        child.children.splice(0, child.children.length);
+    };
+
+    CompNode.prototype.isComponent = function() {
+        return this.self && this.self.nodeType === 1 && this.viewNode.controller;
+    };
+
+    global.Base = global.Base || {};
+    global.Base.CompNode = CompNode;
+
+})(Function('return this')());
+(function(global) {
+
+    var Component = function(el, $scope) {
+        this.el = el;
+        this.$scope = $scope;
+    };
+
+    Component.prototype.setView = function(compNode) {
+        this.el.parentNode.replaceChild(compNode.self, this.el);
+        this.nodeTree = compNode;
+        this.el = compNode.self;
+    };
+
+    Component.prototype.update = function() {
+        this.nodeTree.compare(this.$scope);
+    };
+
+    global.Base = global.Base || {};
+    global.Base.Component = Component;
+
+})(Function('return this')());
+(function(global) {
+
+    var Controller = function(name, view, constructor) {
+        this.name = name;
+        this.view = view;
+        this.constructor = constructor;
+    };
+
+    Controller.prototype.generateComponent = function(el) {
+        // Creating new scope object
+        var $scope = {};
+
+        // Generating new component
+        var comp = new global.Base.Component(el, $scope);
+
+        // Running the constructor
+        this.constructor.call(this, $scope, comp.update.bind(comp));
+
+        // Eventually setting the view for the component
+        comp.setView(this.view.generate($scope));
+
+        return comp;
+    };
+
+    global.Base = global.Base || {};
+    global.Base.Controller = Controller;
+
+})(Function('return this')());
+(function(global) {
+
+    var Injectable = function(name, options) {
+        this.name = name;
+
+        // Modifier function:
+        this.modifier = options.modifier.bind(this);
+
+        // Overriding prototype functions
+        if(typeof options.getter === 'function')
+            this.getter = options.getter.bind(this);
+        if(typeof options.compare === 'function')
+            this.compare = options.compare.bind(this);
+
+        // Other options:
+        this.keepAttribute = !!options.keepAttribute;
+        this.justModify = !!options.justModify;
+    };
+
+    Injectable.prototype.getter = function(statement, $scope) {
+        var TAG = "[Injectable:Getter]";
+        var result;
+        try {
+            with($scope) { result = eval(statement); }
+        } catch(err) {
+            console.error(TAG, this.name + ':', "Couldn't evaluate '" + statement + "'.");
+        }
+        return result;
+    };
+
+    Injectable.prototype.compare = function(oldVal, newVal) {
+        if(oldVal === newVal)
+            return true;
+    };
+
+    global.Base = global.Base || {};
+    global.Base.Injectable = Injectable;
+
+})(Function('return this')());
+(function(global) {
+
+    var viewOptions = global.Config.viewOptions;
+
+    var View = function(name, relPath) {
+        this.name = name;
+        this.loadTemplate(relPath);
+        this.buildNodeTree();
+    };
+
+    View.prototype.loadTemplate = function(relPath) {
+        var path = viewOptions.templatesFolder + '/' + relPath + this.name + '.html';
+        path = path.replace(/\/\//g, '/');
+
+        this.templateSrc = getTemplate(path);
+
+        function getTemplate(path) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', path, false);
+            xhr.send();
+            return xhr.responseText;
+        }
+    };
+
+    View.prototype.buildNodeTree = function() {
+        var tempEl = document.createElement('temp');
+        tempEl.innerHTML = this.templateSrc;
+
+        // Creating node tree
+        var viewNode = new global.Base.ViewNode(document.createElement(this.name));
+        for(var i = 0; i < tempEl.childNodes.length; i++) {
+            viewNode.children.push(buildNodeObject(tempEl.childNodes[i]));
+        }
+
+        // NodeTree was created and saved in the view.
+        this.nodeTree = viewNode;
+
+        function buildNodeObject(DOMNode) {
+            var viewNode = new global.Base.ViewNode(DOMNode),
+                childNode;
+            for(var n = 0; n < DOMNode.childNodes.length; n++) {
+                childNode = buildNodeObject(DOMNode.childNodes[n]);
+                childNode.parent = viewNode;
+                viewNode.children.push(childNode);
+            }
+            return viewNode;
+        }
+    };
+
+    View.prototype.generate = function($scope) {
+        var componentTree = new global.Base.CompNode(this.nodeTree);
+        for(var c = 0; c < this.nodeTree.children.length; c++) {
+            componentTree.appendChild(this.nodeTree.children[c].generate($scope, componentTree));
+        }
+        return componentTree;
+    };
+
+    global.Base = global.Base || {};
+    global.Base.View = View;
+
+})(Function('return this')());
+(function(global) {
+
+    var ViewNode = function(DOMNode) {
+        this.self = DOMNode;
+        this.children = [];
+
+        this.parseNode();
+    };
+
+    ViewNode.prototype.parseNode = function() {
+        var attrArr = this.self.attributes;
+        if(attrArr && attrArr.length > 0) for(var a = 0; a < attrArr.length; a++) {
+            if(attrArr[a].name === 'controller') {
+                this.controller = attrArr[a].value;
+            } else {
+                // Checking for injectables and saving their statements.
+                var injectable = global.App.getInjectable(attrArr[a].name);
+                if(injectable instanceof global.Base.Injectable) {
+                    if(!Array.isArray(this.directives))
+                        this.directives = [];
+                    this.directives.push({
+                        injectable: injectable,
+                        statement: attrArr[a].value
+                    });
+                    if(!injectable.keepAttribute) {
+                        this.self.removeAttribute(attrArr[a].name);
+                        // Removing attribute will lower 'attrArr.length' by 1.
+                        a--;
+                    }
+                }
+            }
+        }
+    };
+
+    ViewNode.prototype.generate = function($scope) {
+        var compNode = new global.Base.CompNode(this);
+
+        if(Array.isArray(this.directives)) {
+            var directive, i;
+            compNode.values = [];
+
+            for(i = 0; i < this.directives.length && compNode.self; i++) if(this.directives[i]) {
+                directive = this.directives[i];
+
+                // Get value from injectable getter
+                var value = directive.injectable.getter(directive.statement, $scope);
+
+                // Running modifier on created compNode with getter value
+                directive.injectable.modifier(compNode, value);
+
+                // Saving the value to compNode
+                compNode.values.push(value);
+
+                // If compNode is multipleNodes, break this loop and continue.
+                if(compNode.multipleNodes)
+                    break;
+            }
+        }
+
+        // If has self continue with generating children
+        if(compNode.self) {
+            if(compNode.multipleNodes) {
+                // Creating variables and saving temp values for later re-assign.
+                var arr = compNode.iterator.array,
+                    tempVal = $scope[compNode.iterator.varName],
+                    tempDirective = this.directives[i],
+                    tempDirectivePos = i,
+                    childNode;
+
+                // Removing the directive temporarily
+                this.directives[i] = undefined;
+
+                var childCount = 0;
+                for(i = 0; i < arr.length; i++) {
+                    $scope[compNode.iterator.varName] = arr[i];
+                    childNode = this.generate($scope);
+                    childNode.iteratorValue = arr[i];
+                    if(childNode.self) childCount++;
+                    compNode.appendChild(childNode);
+                }
+
+                // Re-assigning values.
+                $scope[compNode.iterator.varName] = tempVal;
+                this.directives[tempDirectivePos] = tempDirective;
+            } else
+                generateChildren(this, compNode);
+        }
+
+        // Eventually return the compNode
+        return compNode;
+
+        function generateChildren(viewNode, node) {
+            var generated;
+            // Recursively appending ViewNode's children to given CompNode.
+            for(var i = 0; i < viewNode.children.length; i++) {
+                generated = viewNode.children[i].generate($scope, node);
+                generated.parent = node;
+                node.appendChild(generated);
+
+                if(generated.isComponent()) {
+                    generated.comp = global.Core.Bootstrap(generated.self);
+                    generated.self = generated.comp.nodeTree.self;
+                }
+            }
+        }
+    };
+
+    global.Base = global.Base || {};
+    global.Base.ViewNode = ViewNode;
+
+})(Function('return this')());
+(function(global) {
+
+    var Bootstrap = function(el) {
+        if(el.nodeType === 1) {
+            var controller = getControllerFromEl(el);
+            if(controller instanceof global.Base.Controller) {
+                return controller.generateComponent(el);
+            } else
+                throw { message: "Controller " + el.getAttribute('controller') + " not found." };
+        } else
+            throw { message: "Cannot bootstrap a non-element object." };
+    };
+
+    function getControllerFromEl(el) {
+        var attrText = el.getAttribute('controller');
+        if(typeof attrText === 'string') {
+            var controller = global.App.getController(attrText);
+            if(controller instanceof global.Base.Controller)
+                return controller;
+        }
+    }
+
+    global.Core = global.Core || {};
+    global.Core.Bootstrap = Bootstrap;
+
+})(Function('return this')());
+(function(global) {
+
+    var Controllers = {};
+    var Injectables = {};
+
+    global.App = {
+        // Getters
+        getController: function(name) {
+            return Controllers[name];
+        },
+        getInjectable: function(name) {
+            return Injectables[name];
+        },
+
+        // Generators
+        Bootstrap: bootstrapApp,
+        Controller: generateController,
+        Injectable: generateInjectable
+    };
+
+    function bootstrapApp(componentName) {
+        var TAG = "[Bootstrap]";
+
+        var compEl = document.querySelector('*[controller="' + componentName + '"]');
+        if(compEl && compEl.nodeType === 1) {
+            try {
+                var result = global.Core.Bootstrap(compEl);
+            } catch(err) {
+                console.error(TAG, err.message);
+            }
+            return result;
+        } else
+            console.error(TAG, "Could not find placeholder for '" + componentName + "'.");
+    }
+
+    function generateController(name, relViewPath, constructor) {
+        var TAG = "[Controller]";
+
+        try {
+            // Creating a View
+            var view = new global.Base.View(name, relViewPath);
+
+            // Returning a Controller with the generated View
+            Controllers[name] = new global.Base.Controller(name, view, constructor);
+        } catch(err) {
+            console.error(TAG, err.message);
+        }
+    }
+
+    function generateInjectable(name, options) {
+        var TAG = "[Injectable]";
+        try {
+            Injectables[name] = new global.Base.Injectable(name, options);
+        } catch(err) {
+            console.error(TAG, err.message);
+        }
+    }
+
+})(Function('return this')());
+(function(global) {
+
+    global.App.Injectable('bind-if', {
+        modifier: function(compNode, value) {
+            if(!value) {
+                compNode.self = undefined;
+            }
+        }
+    });
+
+})(Function('return this')());
+(function(global) {
+
+    global.App.Injectable('bind-for', {
+        getter: function(statement, $scope) {
+            var words = statement.split(' '),
+                result = {};
+            for(var w = 0; w < words.length; w++) {
+                if(words[w] === 'in' && w > 0 && w < (words.length-1)) {
+                    try {
+                        with($scope) {
+                            result.array = eval(words[w+1]);
+                        }
+                    } catch(err) {
+                        throw err;
+                    }
+                    result.varName = words[w-1];
+                }
+            }
+            return result;
+        },
+        compare: function(oldVal, newVal) {
+            return oldVal.array === newVal.array;
+        },
+        modifier: function(compNode, value) {
+            compNode.self = document.createElement('iterator');
+            compNode.multipleNodes = true;
+            compNode.iterator = value;
+        }
+    });
+
+})(Function('return this')());
+(function(global) {
+
+    global.App.Injectable('bind-value', {
+        // Options
+        justModify: true,
+
+        // Functions
+        modifier: function(compNode, value) {
+            compNode.self.innerHTML = value;
+        }
+    });
+
+})(Function('return this')());
