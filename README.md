@@ -9,7 +9,6 @@ All you need for this to work is to get one of the final builds ('mvc-lite.js' /
 ## Basic usage: ##
 
 A simple controller will look like this:
-
 ### my-controller.js: ###
 ```js 
 (function(global) {
