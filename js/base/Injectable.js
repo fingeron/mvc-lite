@@ -14,6 +14,7 @@
 
         // Other options:
         this.keepAttribute = !!options.keepAttribute;
+        this.justModify = !!options.justModify;
     };
 
     Injectable.prototype.getter = function(statement, $scope) {

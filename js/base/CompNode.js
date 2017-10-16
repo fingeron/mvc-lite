@@ -12,24 +12,29 @@
         var updated = false;
         if(Array.isArray(this.viewNode.directives)) {
             var directives = this.viewNode.directives,
-                injectable, getterValue;
+                injectable, getterValue, skipped = 0;
             for(var i = 0; i < directives.length; i++) if(directives[i]) {
                 injectable = directives[i].injectable;
                 getterValue = injectable.getter(directives[i].statement, $scope);
 
                 // If injectable getter with current scope result is
                 // different from current one, update the CompNode.
-                if(!injectable.compare(this.values[i], getterValue)) {
-                    this.values[i] = getterValue;
-                    updated = true;
-                    break;
+                if(!injectable.compare(this.values[i-skipped], getterValue)) {
+                    if(injectable.justModify && this.self) {
+                        this.values[i-skipped] = getterValue;
+                        injectable.modifier(this, getterValue);
+                    } else {
+                        updated = true;
+                        break;
+                    }
                 } else if(Array.isArray(getterValue.array)) {
                     break;
                 }
-            }
+            } else
+                skipped++;
         }
 
-        // If updated, recursively compare nodes.
+        // If not updated, recursively compare nodes.
         // Else, generate new CompNode and replace.
         if(!updated) {
             // If node is multipleNodes, compare children by iterator
@@ -47,6 +52,7 @@
                     $scope[iterator.varName] = iterator.array[i];
                     if(this.children[i] instanceof CompNode) {
                         this.children[i].compare($scope);
+                        this.children[i].iteratorValue = iterator.array[i];
                     } else {
                         newCompNode = viewNode.generate($scope);
                         newCompNode.iteratorValue = iterator.array[i];
