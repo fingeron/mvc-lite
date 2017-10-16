@@ -13,7 +13,7 @@
         if(Array.isArray(this.viewNode.directives)) {
             var directives = this.viewNode.directives,
                 injectable, getterValue;
-            for(var i = 0; i < directives.length; i++) {
+            for(var i = 0; i < directives.length; i++) if(directives[i]) {
                 injectable = directives[i].injectable;
                 getterValue = injectable.getter(directives[i].statement, $scope);
 
@@ -23,19 +23,50 @@
                     this.values[i] = getterValue;
                     updated = true;
                     break;
+                } else if(Array.isArray(getterValue.array)) {
+                    break;
                 }
             }
         }
 
         // If updated, recursively compare nodes.
-        // Else, generate new ViewNode and replace.
+        // Else, generate new CompNode and replace.
         if(!updated) {
-            this.children.forEach(function(child) {
-                child.compare($scope);
-            });
+            // If node is multipleNodes, compare children by iterator
+            if(this.multipleNodes) {
+                // Creating helper variables and temp placeholders.
+                var viewNode = this.viewNode,
+                    iterator = this.iterator,
+                    tempVal = $scope[iterator.varName],
+                    tempDirective = viewNode.directives[i],
+                    tempDirectivePos = i,
+                    newCompNode;
+
+                viewNode.directives[tempDirectivePos] = undefined;
+                for(i = 0; i < iterator.array.length; i++) {
+                    $scope[iterator.varName] = iterator.array[i];
+                    if(this.children[i] instanceof CompNode) {
+                        this.children[i].compare($scope);
+                    } else {
+                        newCompNode = viewNode.generate($scope);
+                        newCompNode.iteratorValue = iterator.array[i];
+                        this.appendChild(newCompNode);
+                    }
+                }
+                // Reassigning values
+                $scope[iterator.varName] = tempVal;
+                viewNode.directives[tempDirectivePos] = tempDirective;
+            } else {
+                this.children.forEach(function(child) {
+                    child.compare($scope);
+                });
+            }
         } else {
             // If there were changes, generate a new node.
             var newNode = this.viewNode.generate($scope);
+
+            if(this.iteratorValue)
+                newNode.iteratorValue = this.iteratorValue;
 
             // Assign values and replace with current one
             this.parent.replaceChild(newNode, this);
@@ -68,7 +99,7 @@
                 this.children.splice(childIndex, 1, newNode);
 
                 var insertBefore;
-                while(!insertBefore && childIndex < this.children.length) {
+                while(!insertBefore && childIndex < this.children.length - 1) {
                     if(this.children[++childIndex].self)
                         insertBefore = this.children[childIndex].self;
                 }
@@ -76,7 +107,7 @@
                 if(insertBefore)
                     insertBefore.parentNode.insertBefore(newNode.self, insertBefore);
                 else
-                    insertBefore.parentNode.appendChild(newNode.self);
+                    this.self.appendChild(newNode.self);
             } else
                 console.error("CompNode: replaceChild failed, 2nd parameter is not a child of this node.");
         } else if(!newNode.self && child.self) {

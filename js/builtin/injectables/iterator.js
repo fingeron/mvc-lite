@@ -1,13 +1,9 @@
 (function(global) {
 
-    var uid = 0;
-
     global.App.Injectable('bind-for', {
         getter: function(statement, $scope) {
             var words = statement.split(' '),
-                result = {
-                    id: uid++
-                };
+                result = {};
             for(var w = 0; w < words.length; w++) {
                 if(words[w] === 'in' && w > 0 && w < (words.length-1)) {
                     try {
@@ -27,7 +23,6 @@
         },
         modifier: function(compNode, value) {
             compNode.self = document.createElement('iterator');
-            compNode.self.setAttribute('id_' +  + value.id.toString(), '');
             compNode.multipleNodes = true;
             compNode.iterator = value;
         }

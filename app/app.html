@@ -1,5 +1,12 @@
 <div class="app-container">
-    <div bind-for="num in arr">
-        <span bind-value="num"></span>
-    </div>
+    <h1 bind-value="title"></h1>
+    <ul>
+        <li>0</li>
+        <li>2</li>
+        <li bind-for="num in arr" bind-if="num === 3 || num === 7">
+            <span bind-value="num"></span>
+        </li>
+        <li>3</li>
+        <li>4</li>
+    </ul>
 </div>

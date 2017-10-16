@@ -13,7 +13,7 @@
             if(attrArr[a].name === 'controller') {
                 this.controller = attrArr[a].value;
             } else {
-                // Checking for injectables and saving their statements
+                // Checking for injectables and saving their statements.
                 var injectable = global.App.getInjectable(attrArr[a].name);
                 if(injectable instanceof global.Base.Injectable) {
                     if(!Array.isArray(this.directives))
@@ -24,8 +24,7 @@
                     });
                     if(!injectable.keepAttribute) {
                         this.self.removeAttribute(attrArr[a].name);
-                        // Because we removed attribute 'attrArr.length', which is
-                        // a reference to node.attributes, will return a number lower by 1.
+                        // Removing attribute will lower 'attrArr.length' by 1.
                         a--;
                     }
                 }
@@ -40,7 +39,7 @@
             var directive, i;
             compNode.values = [];
 
-            for(i = 0; i < this.directives.length && compNode.self; i++) {
+            for(i = 0; i < this.directives.length && compNode.self; i++) if(this.directives[i]) {
                 directive = this.directives[i];
 
                 // Get value from injectable getter
@@ -49,29 +48,46 @@
                 // Running modifier on created compNode with getter value
                 directive.injectable.modifier(compNode, value);
 
-                // Eventually saving the value to compNode
+                // Saving the value to compNode
                 compNode.values.push(value);
+
+                // If compNode is multipleNodes, break this loop and continue.
+                if(compNode.multipleNodes)
+                    break;
             }
         }
 
-        // If has self
+        // If has self continue with generating children
         if(compNode.self) {
             if(compNode.multipleNodes) {
+                // Creating variables and saving temp values for later re-assign.
                 var arr = compNode.iterator.array,
                     tempVal = $scope[compNode.iterator.varName],
+                    tempDirective = this.directives[i],
+                    tempDirectivePos = i,
                     childNode;
 
+                // Removing the directive temporarily
+                this.directives[i] = undefined;
+
+                var childCount = 0;
                 for(i = 0; i < arr.length; i++) {
                     $scope[compNode.iterator.varName] = arr[i];
-                    childNode = new global.Base.CompNode(this);
-                    generateChildren(this, childNode);
+                    childNode = this.generate($scope);
+                    childNode.iteratorValue = arr[i];
+                    if(childNode.self) childCount++;
                     compNode.appendChild(childNode);
                 }
 
+                // Re-assigning values.
                 $scope[compNode.iterator.varName] = tempVal;
+                this.directives[tempDirectivePos] = tempDirective;
             } else
                 generateChildren(this, compNode);
         }
+
+        // Eventually return the compNode
+        return compNode;
 
         function generateChildren(viewNode, node) {
             var generated;
@@ -87,8 +103,6 @@
                 }
             }
         }
-
-        return compNode;
     };
 
     global.Base = global.Base || {};
