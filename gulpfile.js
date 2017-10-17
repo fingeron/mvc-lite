@@ -26,3 +26,7 @@ gulp.task('compile', function() {
         .pipe(uglify())
         .pipe(gulp.dest(DEST_PATH));
 });
+
+gulp.task('watch', function() {
+    gulp.watch('js/**/*.js', ['compile']);
+});

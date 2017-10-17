@@ -297,11 +297,17 @@
 })(Function('return this')());
 (function(global) {
 
+    var TAG = "[Injectable]";
+
     var Injectable = function(name, options) {
         this.name = name;
 
         // Modifier function:
-        this.modifier = options.modifier.bind(this);
+        try {
+            this.modifier = options.modifier.bind(this);
+        } catch(err) {
+            console.error(TAG, this.name + ": No modifier set.");
+        }
 
         // Overriding prototype functions
         if(typeof options.getter === 'function')
@@ -315,7 +321,6 @@
     };
 
     Injectable.prototype.getter = function(statement, $scope) {
-        var TAG = "[Injectable:Getter]";
         var result;
         try {
             with($scope) { result = eval(statement); }
@@ -598,6 +603,42 @@
             if(!value) {
                 compNode.self = undefined;
             }
+        }
+    });
+
+})(Function('return this')());
+(function(global) {
+
+    global.App.Injectable('bind-events', {
+        getter: function(statement, $scope) {
+            var events = global.Utils.String.toDictionary(statement);
+            for(var event in events) if(events.hasOwnProperty(event)) {
+                events[event] = function(eventStatement) {
+                    try {
+                        with($scope) {
+                            eval(eventStatement);
+                        }
+                    } catch(err) {
+                        throw (this.name + ": " + err.message)
+                    }
+                }.bind(this, events[event]);
+            }
+            return events;
+        },
+        modifier: function(compNode, value) {
+            for(var event in value) if(value.hasOwnProperty(event)) {
+                compNode.self.addEventListener(event, function(callback, e) {
+                    if(e && e.preventDefault) e.preventDefault();
+                    try {
+                        callback();
+                    } catch(err) {
+                        console.error('[Injectable]', err);
+                    }
+                }.bind(this, value[event]));
+            }
+        },
+        compare: function(oldVal, newVal) {
+            return true;
         }
     });
 

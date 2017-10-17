@@ -1,10 +1,16 @@
 (function(global) {
 
+    var TAG = "[Injectable]";
+
     var Injectable = function(name, options) {
         this.name = name;
 
         // Modifier function:
-        this.modifier = options.modifier.bind(this);
+        try {
+            this.modifier = options.modifier.bind(this);
+        } catch(err) {
+            console.error(TAG, this.name + ": No modifier set.");
+        }
 
         // Overriding prototype functions
         if(typeof options.getter === 'function')
@@ -18,7 +24,6 @@
     };
 
     Injectable.prototype.getter = function(statement, $scope) {
-        var TAG = "[Injectable:Getter]";
         var result;
         try {
             with($scope) { result = eval(statement); }
