@@ -2,6 +2,7 @@
 
     var Controllers = {};
     var Injectables = {};
+    var Routers     = {};
 
     global.App = {
         // Getters

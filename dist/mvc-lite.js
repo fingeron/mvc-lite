@@ -242,6 +242,11 @@
         return this.self && this.self.nodeType === 1 && this.viewNode.controller;
     };
 
+    CompNode.prototype.bootstrap = function() {
+        this.comp = global.Core.Bootstrap(this.self);
+        this.self = this.comp.nodeTree.self;
+    };
+
     global.Base = global.Base || {};
     global.Base.CompNode = CompNode;
 
@@ -256,7 +261,7 @@
     Component.prototype.setView = function(compNode) {
         this.el.parentNode.replaceChild(compNode.self, this.el);
         this.nodeTree = compNode;
-        this.el = compNode.self;
+        this.el = compNode.self; 
     };
 
     Component.prototype.update = function() {
@@ -434,7 +439,7 @@
         }
     };
 
-    ViewNode.prototype.generate = function($scope) {
+    ViewNode.prototype.generate = function($scope, parentCompNode) {
         var compNode = new global.Base.CompNode(this);
 
         if(Array.isArray(this.directives)) {
@@ -484,6 +489,11 @@
                 // Re-assigning values.
                 $scope[compNode.iterator.varName] = tempVal;
                 this.directives[tempDirectivePos] = tempDirective;
+            } else if(compNode.routeController) {
+                compNode.self.setAttribute('controller', compNode.routeController.name);
+                if(parentCompNode)
+                    parentCompNode.appendChild(compNode);
+                compNode.bootstrap();
             } else
                 generateChildren(this, compNode);
         }
@@ -496,13 +506,9 @@
             // Recursively appending ViewNode's children to given CompNode.
             for(var i = 0; i < viewNode.children.length; i++) {
                 generated = viewNode.children[i].generate($scope, node);
-                generated.parent = node;
                 node.appendChild(generated);
 
-                if(generated.isComponent()) {
-                    generated.comp = global.Core.Bootstrap(generated.self);
-                    generated.self = generated.comp.nodeTree.self;
-                }
+                if(generated.isComponent()) generated.bootstrap();
             }
         }
     };
@@ -541,6 +547,7 @@
 
     var Controllers = {};
     var Injectables = {};
+    var Routers     = {};
 
     global.App = {
         // Getters

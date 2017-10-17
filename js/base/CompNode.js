@@ -131,6 +131,11 @@
         return this.self && this.self.nodeType === 1 && this.viewNode.controller;
     };
 
+    CompNode.prototype.bootstrap = function() {
+        this.comp = global.Core.Bootstrap(this.self);
+        this.self = this.comp.nodeTree.self;
+    };
+
     global.Base = global.Base || {};
     global.Base.CompNode = CompNode;
 
