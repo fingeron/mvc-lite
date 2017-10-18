@@ -2,7 +2,7 @@
 
     var Controllers = {};
     var Injectables = {};
-    var Routers     = {};
+    var Models     = {};
 
     global.App = {
         // Getters
@@ -12,11 +12,15 @@
         getInjectable: function(name) {
             return Injectables[name];
         },
+        getModel: function(name) {
+            return Models[name];
+        },
 
         // Generators
         Bootstrap: bootstrapApp,
         Controller: generateController,
-        Injectable: generateInjectable
+        Injectable: generateInjectable,
+        Model: createModel
     };
 
     function bootstrapApp(componentName) {
@@ -52,6 +56,15 @@
         var TAG = "[Injectable]";
         try {
             Injectables[name] = new global.Base.Injectable(name, options);
+        } catch(err) {
+            console.error(TAG, err.message);
+        }
+    }
+
+    function createModel(name, initFunc) {
+        var TAG = "[Model]";
+        try {
+            Models[name] = new global.Base.Model(name, initFunc);
         } catch(err) {
             console.error(TAG, err.message);
         }
