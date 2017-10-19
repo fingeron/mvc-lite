@@ -2,17 +2,30 @@
 
     global.App.Injectable('bind-events', {
         getter: function(statement, $scope) {
-            var events = global.Utils.String.toDictionary(statement);
+            var events = global.Utils.String.toDictionary(statement),
+                matches, funcName, variables;
+
             for(var event in events) if(events.hasOwnProperty(event)) {
-                events[event] = function(eventStatement) {
+                var regEx = new RegExp("^(.+)\\((.*)\\)$");
+                matches = events[event].match(regEx);
+                funcName = matches[1];
+                variables = matches[2].split(',');
+
+                for(var i = 0; i < variables.length; i++) {
+                    variables[i] = $scope[variables[i]];
+                }
+
+                events[event] = function(funcName, variables) {
+                    var func;
                     try {
                         with($scope) {
-                            eval(eventStatement);
+                            func = eval(funcName);
                         }
+                        func.apply(undefined, variables);
                     } catch(err) {
                         throw (this.name + ": " + err.message)
                     }
-                }.bind(this, events[event]);
+                }.bind(this, funcName, variables);
             }
             return events;
         },
