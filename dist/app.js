@@ -20,4 +20,4 @@
         $scope.getInput('text');
     });
 
-})(Function('return this')()); 
+})(Function('return this')());
