@@ -243,7 +243,7 @@
     };
 
     CompNode.prototype.bootstrap = function() {
-        this.comp = global.Core.Bootstrap(this.self);
+        this.comp = global.Core.Bootstrap(this.self, this.inputs);
         this.self = this.comp.nodeTree.self;
     };
 
@@ -268,6 +268,14 @@
         this.nodeTree.compare(this.$scope);
     };
 
+    Component.prototype.getInput = function(name) {
+        if(!this.inputs || typeof this.inputs[name] === 'undefined')
+            throw { message: "Input " + name + " doesn't exist." };
+        else {
+            return this.inputs[name];
+        }
+    };
+
     global.Base = global.Base || {};
     global.Base.Component = Component;
 
@@ -280,12 +288,21 @@
         this.constructor = constructor;
     };
 
-    Controller.prototype.generateComponent = function(el) {
+    Controller.prototype.generateComponent = function(el, inputs) {
         // Creating new scope object
         var $scope = {};
 
         // Generating new component
         var comp = new global.Base.Component(el, $scope);
+
+        // If inputs assigning them to comp
+        if(typeof inputs === 'object')
+            comp.inputs = inputs;
+
+        // Provide the $scope with a function to retrieve inputs
+        $scope.getInput = function(name) {
+            $scope[name] = this.getInput(name);
+        }.bind(comp);
 
         // Running the constructor
         this.constructor.call(this, $scope, comp.update.bind(comp));
@@ -543,11 +560,6 @@
                 // Re-assigning values.
                 $scope[compNode.iterator.varName] = tempVal;
                 this.directives[tempDirectivePos] = tempDirective;
-            } else if(compNode.routeController) {
-                compNode.self.setAttribute('controller', compNode.routeController.name);
-                if(parentCompNode)
-                    parentCompNode.appendChild(compNode);
-                compNode.bootstrap();
             } else
                 generateChildren(this, compNode);
         }
@@ -573,11 +585,11 @@
 })(Function('return this')());
 (function(global) {
 
-    var Bootstrap = function(el) {
+    var Bootstrap = function(el, inputs) {
         if(el.nodeType === 1) {
             var controller = getControllerFromEl(el);
             if(controller instanceof global.Base.Controller) {
-                return controller.generateComponent(el);
+                return controller.generateComponent(el, inputs);
             } else
                 throw { message: "Controller " + el.getAttribute('controller') + " not found." };
         } else
@@ -767,6 +779,38 @@
         },
         compare: function(oldVal, newVal) {
             return true;
+        }
+    });
+
+})(Function('return this')());
+(function(global) {
+
+    global.App.Injectable('input', {
+        getter: function(statement, $scope) {
+            var inputs = global.Utils.String.toDictionary(statement);
+            try {
+                for(var input in inputs) if(inputs.hasOwnProperty(input)) {
+                    with($scope) {
+                        inputs[input] = eval(inputs[input]);
+                    }
+                }
+            } catch(err) {
+                throw { message: this.name + ": " + err.message };
+            }
+            return inputs; 
+        },
+        modifier: function(compNode, value) {
+            compNode.inputs = value;
+        },
+        compare: function(oldVal, newVal) {
+            var equals = true;
+            for(var input in newVal) if(newVal.hasOwnProperty(input)) {
+                if(newVal[input] !== oldVal[input]) {
+                    equals = false;
+                    break;
+                }
+            }
+            return equals;
         }
     });
 

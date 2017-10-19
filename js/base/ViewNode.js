@@ -82,11 +82,6 @@
                 // Re-assigning values.
                 $scope[compNode.iterator.varName] = tempVal;
                 this.directives[tempDirectivePos] = tempDirective;
-            } else if(compNode.routeController) {
-                compNode.self.setAttribute('controller', compNode.routeController.name);
-                if(parentCompNode)
-                    parentCompNode.appendChild(compNode);
-                compNode.bootstrap();
             } else
                 generateChildren(this, compNode);
         }
