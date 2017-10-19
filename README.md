@@ -35,10 +35,10 @@ The HTML index file:
 ```
 
 A simple controller will look like this:
-### my-controller.js: ###
+### app.js: ###
 ```js 
 (function(global) {
-	global.App.Controller('my-controller', './', function($scope, _update) {
+	global.App.Controller('app', './', function($scope, _update) {
 		$scope.title = "Hello World!";
 	});	
 })(Function('return this')());
@@ -48,14 +48,14 @@ A simple controller will look like this:
 * './' - The relative path for the HTML file (must be named like the controller!).
 * 'function($scope, _update)' - A function that will be used to construct component instances.
 
-### my-controller.html: ###
+### app.html: ###
 ```html
-<div class="my-controller-container">
+<div class="app-container">
 	<h1 bind-value="title"></h1>
 </div>
 ```
 
-Eventually, we will need to tell the framework to bootstrap the app from a specific component:
+Eventually, we will need to tell the framework to bootstrap the app with a specific controller:
 ### main.js ###
 ```js
 (function(global) {
