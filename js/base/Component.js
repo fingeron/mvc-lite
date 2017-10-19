@@ -16,10 +16,10 @@
     };
 
     Component.prototype.getInput = function(name) {
-        if(!this.inputs || typeof this.inputs[name] === 'undefined')
-            throw { message: "Input " + name + " doesn't exist." };
-        else {
+        if(this.inputs && this.inputs.hasOwnProperty(name))
             return this.inputs[name];
+        else {
+            throw { message: "Input " + name + " doesn't exist." };
         }
     };
 

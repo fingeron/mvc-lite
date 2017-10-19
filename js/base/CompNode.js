@@ -20,14 +20,14 @@
                 // If injectable getter with current scope result is
                 // different from current one, update the CompNode.
                 if(!injectable.compare(this.values[i-skipped], getterValue)) {
+                    this.values[i-skipped] = getterValue;
                     if(injectable.justModify && this.self) {
-                        this.values[i-skipped] = getterValue;
                         injectable.modifier(this, getterValue);
                     } else {
                         updated = true;
                         break;
                     }
-                } else if(Array.isArray(getterValue.array)) {
+                } else if(getterValue && Array.isArray(getterValue.array)) {
                     break;
                 }
             } else
@@ -79,7 +79,7 @@
 
             // Finally if node is a component bootstrap it.
             if(newNode.isComponent()) {
-                newNode.comp = global.Core.Bootstrap(newNode.self);
+                newNode.comp = global.Core.Bootstrap(newNode.self, newNode.inputs);
                 newNode.self = newNode.comp.nodeTree.self;
             }
         }
@@ -128,7 +128,7 @@
     };
 
     CompNode.prototype.isComponent = function() {
-        return this.self && this.self.nodeType === 1 && this.viewNode.controller;
+        return this.self && this.self.nodeType === 1 && this.viewNode.controller && !this.iterator;
     };
 
     CompNode.prototype.bootstrap = function() {

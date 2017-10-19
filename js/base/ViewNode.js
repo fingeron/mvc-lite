@@ -32,7 +32,7 @@
         }
     };
 
-    ViewNode.prototype.generate = function($scope, parentCompNode) {
+    ViewNode.prototype.generate = function($scope) {
         var compNode = new global.Base.CompNode(this);
 
         if(Array.isArray(this.directives)) {
@@ -77,6 +77,7 @@
                     childNode.iteratorValue = arr[i];
                     if(childNode.self) childCount++;
                     compNode.appendChild(childNode);
+                    if(childNode.isComponent()) childNode.bootstrap();
                 }
 
                 // Re-assigning values.

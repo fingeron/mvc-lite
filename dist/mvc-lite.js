@@ -131,14 +131,14 @@
                 // If injectable getter with current scope result is
                 // different from current one, update the CompNode.
                 if(!injectable.compare(this.values[i-skipped], getterValue)) {
+                    this.values[i-skipped] = getterValue;
                     if(injectable.justModify && this.self) {
-                        this.values[i-skipped] = getterValue;
                         injectable.modifier(this, getterValue);
                     } else {
                         updated = true;
                         break;
                     }
-                } else if(Array.isArray(getterValue.array)) {
+                } else if(getterValue && Array.isArray(getterValue.array)) {
                     break;
                 }
             } else
@@ -190,7 +190,7 @@
 
             // Finally if node is a component bootstrap it.
             if(newNode.isComponent()) {
-                newNode.comp = global.Core.Bootstrap(newNode.self);
+                newNode.comp = global.Core.Bootstrap(newNode.self, newNode.inputs);
                 newNode.self = newNode.comp.nodeTree.self;
             }
         }
@@ -239,7 +239,7 @@
     };
 
     CompNode.prototype.isComponent = function() {
-        return this.self && this.self.nodeType === 1 && this.viewNode.controller;
+        return this.self && this.self.nodeType === 1 && this.viewNode.controller && !this.iterator;
     };
 
     CompNode.prototype.bootstrap = function() {
@@ -269,10 +269,10 @@
     };
 
     Component.prototype.getInput = function(name) {
-        if(!this.inputs || typeof this.inputs[name] === 'undefined')
-            throw { message: "Input " + name + " doesn't exist." };
-        else {
+        if(this.inputs && this.inputs.hasOwnProperty(name))
             return this.inputs[name];
+        else {
+            throw { message: "Input " + name + " doesn't exist." };
         }
     };
 
@@ -510,7 +510,7 @@
         }
     };
 
-    ViewNode.prototype.generate = function($scope, parentCompNode) {
+    ViewNode.prototype.generate = function($scope) {
         var compNode = new global.Base.CompNode(this);
 
         if(Array.isArray(this.directives)) {
@@ -555,6 +555,7 @@
                     childNode.iteratorValue = arr[i];
                     if(childNode.self) childCount++;
                     compNode.appendChild(childNode);
+                    if(childNode.isComponent()) childNode.bootstrap();
                 }
 
                 // Re-assigning values.
@@ -797,7 +798,7 @@
             } catch(err) {
                 throw { message: this.name + ": " + err.message };
             }
-            return inputs; 
+            return inputs;
         },
         modifier: function(compNode, value) {
             compNode.inputs = value;
