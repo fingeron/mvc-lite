@@ -44,7 +44,7 @@ A simple controller will look like this:
 })(Function('return this')());
 ```
 
-* 'my-controller' - The name you will use to refer to that controller in the HTML.
+* 'app' - The name you will use to refer to that controller in the HTML.
 * './' - The relative path for the HTML file (must be named like the controller!).
 * 'function($scope, _update)' - A function that will be used to construct component instances.
 
