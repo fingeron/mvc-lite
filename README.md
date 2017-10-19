@@ -43,7 +43,6 @@ A simple controller will look like this:
 	});	
 })(Function('return this')());
 ```
-
 * 'app' - The name you will use to refer to that controller in the HTML.
 * './' - The relative path for the HTML file (must be named like the controller!).
 * 'function($scope, _update)' - A function that will be used to construct component instances.
@@ -54,6 +53,7 @@ A simple controller will look like this:
 	<h1 bind-value="title"></h1>
 </div>
 ```
+* 'bind-value' - One of the builtin injectables which will inject the value of "title" from the $scope to the element's HTML.
 
 Eventually, we will need to tell the framework to bootstrap the app with a specific controller:
 ### main.js ###
@@ -64,5 +64,3 @@ Eventually, we will need to tell the framework to bootstrap the app with a speci
 
 })(Function('return this')());
 ```
-
-* 'bind-value' - One of the builtin injectables which will inject the value of "title" from the $scope to the element's HTML.
