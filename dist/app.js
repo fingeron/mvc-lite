@@ -9,10 +9,3 @@
     });
 
 })(Function('return this')());
-(function(global) {
-
-    global.App.Model('User', function(dataCallback) {
-        dataCallback(5);
-    });
-
-})(Function('return this')());
