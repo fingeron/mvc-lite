@@ -8,6 +8,32 @@ All you need for this to work is to get one of the final builds ('mvc-lite.js' /
 
 ## Basic usage: ##
 
+The HTML index file:
+### index.html ###
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Web App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Compiled library code -->
+    <script src="./dist/mvc-lite.js"></script>
+    
+    <!-- Compiled app code (controllers/injectables/models..) -->
+    <script src="./dist/app.js"></script>
+
+    <link rel="stylesheet" href="./main.css">
+</head>
+<body>
+    <div controller="app"></div>
+
+    <!-- main.js -->
+    <script src="main.js"></script>
+</body>
+</html>
+```
+
 A simple controller will look like this:
 ### my-controller.js: ###
 ```js 
@@ -27,6 +53,16 @@ A simple controller will look like this:
 <div class="my-controller-container">
 	<h1 bind-value="title"></h1>
 </div>
+```
+
+Eventually, we will need to tell the framework to bootstrap the app from a specific component:
+### main.js ###
+```js
+(function(global) {
+
+    global.App.Bootstrap('app');
+
+})(Function('return this')());
 ```
 
 * 'bind-value' - One of the builtin injectables which will inject the value of "title" from the $scope to the element's HTML.
