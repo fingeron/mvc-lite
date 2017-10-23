@@ -18,6 +18,27 @@
                 }
             };
             xhr.send();
+        },
+        post: function(url, data, callback) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+
+            // analyse request data
+            if(typeof data.headers === 'object') {
+                for(var header in data.headers)
+                    xhr.setRequestHeader(header, data.headers[header]);
+            }
+
+            if (typeof data.body === 'object') {
+                data = data.body;
+            }
+
+            xhr.onreadystatechange = function() {
+                if(xhr.status === 200 && xhr.readyState === 4) {
+                    callback(JSON.parse(xhr.responseText));
+                }
+            };
+            xhr.send(JSON.stringify(data));
         }
     };
 

@@ -27,11 +27,61 @@
                 }
             };
             xhr.send();
+        },
+        post: function(url, data, callback) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+
+            // analyse request data
+            if(typeof data.headers === 'object') {
+                for(var header in data.headers)
+                    xhr.setRequestHeader(header, data.headers[header]);
+            }
+
+            if (typeof data.body === 'object') {
+                data = data.body;
+            }
+
+            xhr.onreadystatechange = function() {
+                if(xhr.status === 200 && xhr.readyState === 4) {
+                    callback(JSON.parse(xhr.responseText));
+                }
+            };
+            xhr.send(JSON.stringify(data));
         }
     };
 
     global.Utils = global.Utils || {};
     global.Utils.Http = Http;
+
+})(Function('return this')());
+(function(global) {
+
+    var ObjectFuncs = {
+        updateObject: function(origin, update) {
+            var changes = 0;
+            if(typeof origin === 'object' && typeof update === 'object') {
+                for(var property in update) if(update.hasOwnProperty(property)) {
+                    switch(typeof update[property]) {
+                        case 'object':
+                            if(!Array.isArray(update[property]))
+                                changes += ObjectFuncs.updateObject(origin[property], update[property]);
+                            break;
+                        default:
+                            if(origin[property] !== update[property]) {
+                                origin[property] = update[property];
+                                changes++;
+                            }
+                            break;
+                    }
+                }
+            }
+            return changes;
+        }
+    };
+
+    global.Utils = global.Utils || {};
+    global.Utils.Object = ObjectFuncs;
 
 })(Function('return this')());
 (function(global) {
@@ -370,10 +420,10 @@
         // Default events
         this.events = {};
 
-        this.getData();
+        this.init();
     };
 
-    Model.prototype.getData = function() {
+    Model.prototype.init = function() {
         if(typeof this.initFunc !== 'function') {
             throw { message: this.name + ": Couldn't initialize the model (initFunc err)" };
         } else {
@@ -390,10 +440,18 @@
         this.emit(eventName || 'setData', data);
     };
 
-    Model.prototype.emit = function(event, data) {
+    Model.prototype.emit = function() {
+        var argsArr = [], event;
+        for(var a = 0; a < arguments.length; a++) {
+            if(a === 0)
+                event = arguments[a];
+            else
+                argsArr.push(arguments[a]);
+        }
+
         if(Array.isArray(this.events[event])) {
             for(var i = 0; i < this.events[event].length; i++) {
-                this.events[event][i](data);
+                this.events[event][i].apply(undefined, argsArr);
             }
         }
     };
