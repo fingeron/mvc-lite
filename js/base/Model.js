@@ -7,10 +7,10 @@
         // Default events
         this.events = {};
 
-        this.getData();
+        this.init();
     };
 
-    Model.prototype.getData = function() {
+    Model.prototype.init = function() {
         if(typeof this.initFunc !== 'function') {
             throw { message: this.name + ": Couldn't initialize the model (initFunc err)" };
         } else {
@@ -27,10 +27,18 @@
         this.emit(eventName || 'setData', data);
     };
 
-    Model.prototype.emit = function(event, data) {
+    Model.prototype.emit = function() {
+        var argsArr = [], event;
+        for(var a = 0; a < arguments.length; a++) {
+            if(a === 0)
+                event = arguments[a];
+            else
+                argsArr.push(arguments[a]);
+        }
+
         if(Array.isArray(this.events[event])) {
             for(var i = 0; i < this.events[event].length; i++) {
-                this.events[event][i](data);
+                this.events[event][i].apply(undefined, argsArr);
             }
         }
     };
