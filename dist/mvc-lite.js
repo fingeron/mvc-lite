@@ -829,7 +829,7 @@
 
                 events[event] = function(funcName, variables) {
                     var func;
-                    try { 
+                    try {
                         with($scope) {
                             func = eval(funcName);
                         }
