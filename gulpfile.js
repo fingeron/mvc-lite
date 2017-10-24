@@ -21,7 +21,7 @@ var LibraryConfig = {
 
 var AppConfig = {
     SOURCE: [
-        './app/**/*.js',
+        './app/**/*.js'
     ],
     DEST_NAME: 'app'
 };

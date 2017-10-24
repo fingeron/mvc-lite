@@ -10,17 +10,24 @@
 (function(global) {
 
     var Http = {
-        get: function(url, params, callback) {
-            if(typeof params === 'object') {
+        get: function(url, data, callback) {
+            var xhr = new XMLHttpRequest();
+
+            if(typeof data.headers === 'object') {
+                for(var header in data.headers) if(data.headers.hasOwnProperty(header)) {
+                    xhr.setRequestHeader(header, data.headers[header]);
+                }
+            }
+            if(typeof data.params === 'object') {
                 var urlParams = '?';
-                for(var param in params) if(params.hasOwnProperty(param)) {
-                    urlParams += param + '=' + params[param] + '&';
+                for(var param in data.params) if(data.params.hasOwnProperty(param)) {
+                    urlParams += param + '=' + data.params[param] + '&';
                 }
                 url += urlParams;
             }
 
-            var xhr = new XMLHttpRequest();
             xhr.open('GET', url, true);
+
             xhr.onreadystatechange = function() {
                 if(xhr.status === 200 && xhr.readyState === 4) {
                     callback(JSON.parse(xhr.responseText));
@@ -34,8 +41,9 @@
 
             // analyse request data
             if(typeof data.headers === 'object') {
-                for(var header in data.headers)
+                for(var header in data.headers) if(data.headers.hasOwnProperty(header)) {
                     xhr.setRequestHeader(header, data.headers[header]);
+                }
             }
 
             if (typeof data.body === 'object') {
@@ -58,14 +66,13 @@
 (function(global) {
 
     var ObjectFuncs = {
-        updateObject: function(origin, update) {
+        updateObject: function(origin, update, ignore) {
             var changes = 0;
             if(typeof origin === 'object' && typeof update === 'object') {
-                for(var property in update) if(update.hasOwnProperty(property)) {
+                for(var property in update) if(update.hasOwnProperty(property) && !isIgnored(property)) {
                     switch(typeof update[property]) {
                         case 'object':
-                            if(!Array.isArray(update[property]))
-                                changes += ObjectFuncs.updateObject(origin[property], update[property]);
+                            changes += ObjectFuncs.updateObject(origin[property], update[property]);
                             break;
                         default:
                             if(origin[property] !== update[property]) {
@@ -76,6 +83,20 @@
                     }
                 }
             }
+
+            function isIgnored(property) {
+                if(Array.isArray(ignore)) {
+                    for(var i = 0; i < ignore.length; i++) {
+                        if(property === ignore[i]) {
+                            return true;
+                        }
+                    }
+                } else if(property === ignore)
+                    return true;
+
+                return false;
+            }
+
             return changes;
         }
     };
@@ -806,17 +827,17 @@
                 funcName = matches[1];
                 variables = matches[2].split(',');
 
-                for(var i = 0; i < variables.length; i++) {
-                    variables[i] = $scope[variables[i]];
-                }
-
                 events[event] = function(funcName, variables) {
                     var func;
-                    try {
+                    try { 
                         with($scope) {
                             func = eval(funcName);
                         }
-                        func.apply(undefined, variables);
+                        var values = [];
+                        for(var i = 0; i < variables.length; i++) {
+                            values[i] = $scope[variables[i]];
+                        }
+                        func.apply(undefined, values);
                     } catch(err) {
                         throw (this.name + ": " + err.message)
                     }
