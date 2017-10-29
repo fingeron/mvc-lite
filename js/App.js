@@ -1,8 +1,9 @@
 (function(global) {
 
-    var Controllers = {};
-    var Injectables = {};
-    var Models     = {};
+    var Controllers = {},
+        Injectables = {},
+        Models     = {},
+        routerInstance;
 
     global.App = {
         // Getters
@@ -20,7 +21,8 @@
         Bootstrap: bootstrapApp,
         Controller: generateController,
         Injectable: generateInjectable,
-        Model: createModel
+        Model: createModel,
+        Router: getRouter
     };
 
     function bootstrapApp(componentName) {
@@ -68,6 +70,13 @@
         } catch(err) {
             console.error(TAG, err.message);
         }
+    }
+
+    function getRouter(routes) {
+        if(!routerInstance)
+            routerInstance = new global.Core.Router(routes);
+
+        return routerInstance;
     }
 
 })(Function('return this')());

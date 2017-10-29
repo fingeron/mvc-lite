@@ -18,14 +18,14 @@
         { path: 'about', controller: 'about' }
     ];
 
-    new global.Core.Router(appRoutes);
+    new global.App.Router(appRoutes);
 
 })(Function('return this')());
 (function(global) {
 
     global.App.Controller('about', '/about/', function($scope, _update) {
         $scope.buttonClicked = function(pageName) {
-            global.Core.Router().navigateTo(pageName);
+            global.App.Router().navigateTo(pageName);
         };
     });
 
@@ -36,7 +36,7 @@
         $scope.title = "Main Layout";
 
         $scope.buttonClicked = function(pageName) {
-            global.Core.Router().navigateTo(pageName); 
+            global.App.Router().navigateTo(pageName);
         };
     });
 

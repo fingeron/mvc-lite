@@ -34,7 +34,7 @@
 
         if(this.path.length === matchingParts) {
             if(this.redirect) {
-                global.Core.Router().navigateTo(this.redirect);
+                global.App.Router().navigateTo(this.redirect);
                 return false;
             }
             if(!Array.isArray(matchesArr))

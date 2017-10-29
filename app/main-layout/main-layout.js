@@ -4,7 +4,7 @@
         $scope.title = "Main Layout";
 
         $scope.buttonClicked = function(pageName) {
-            global.Core.Router().navigateTo(pageName);
+            global.App.Router().navigateTo(pageName);
         };
     });
 

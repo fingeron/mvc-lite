@@ -281,7 +281,7 @@
             this.children.splice(this.children.indexOf(child), 1, newNode);
         } else if(newNode.self && !child.self) {
             var childIndex = this.children.indexOf(child);
-            if(childIndex >= 0) {
+            if(childIndex >= 0) { 
                 this.children.splice(childIndex, 1, newNode);
 
                 var insertBefore;
@@ -530,7 +530,7 @@
 
         if(this.path.length === matchingParts) {
             if(this.redirect) {
-                global.Core.Router().navigateTo(this.redirect);
+                global.App.Router().navigateTo(this.redirect);
                 return false;
             }
             if(!Array.isArray(matchesArr))
@@ -840,7 +840,7 @@
 
                     for(var j = i; j < urlParseResults.controllers.length; j++) {
                         this.state.controllers[j] = urlParseResults.controllers[j];
-                    } 
+                    }
 
                     if(j < this.state.controllers.length)
                         this.state.controllers.splice(j, this.state.controllers.length);
@@ -911,9 +911,10 @@
 })(Function('return this')());
 (function(global) {
 
-    var Controllers = {};
-    var Injectables = {};
-    var Models     = {};
+    var Controllers = {},
+        Injectables = {},
+        Models     = {},
+        routerInstance;
 
     global.App = {
         // Getters
@@ -931,7 +932,8 @@
         Bootstrap: bootstrapApp,
         Controller: generateController,
         Injectable: generateInjectable,
-        Model: createModel
+        Model: createModel,
+        Router: getRouter
     };
 
     function bootstrapApp(componentName) {
@@ -979,6 +981,13 @@
         } catch(err) {
             console.error(TAG, err.message);
         }
+    }
+
+    function getRouter(routes) {
+        if(!routerInstance)
+            routerInstance = new global.Core.Router(routes);
+
+        return routerInstance;
     }
 
 })(Function('return this')());
@@ -1161,7 +1170,7 @@
             return true;
         },
         modifier: function(compNode, value) {
-            var Router = global.Core.Router(),
+            var Router = global.App.Router(),
                 controllerName = Router.nextController(compNode),
                 controller = global.App.getController(controllerName);
 

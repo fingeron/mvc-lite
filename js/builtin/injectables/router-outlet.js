@@ -7,7 +7,7 @@
             return true;
         },
         modifier: function(compNode, value) {
-            var Router = global.Core.Router(),
+            var Router = global.App.Router(),
                 controllerName = Router.nextController(compNode),
                 controller = global.App.getController(controllerName);
 

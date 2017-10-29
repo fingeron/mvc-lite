@@ -6,6 +6,6 @@
         { path: 'about', controller: 'about' }
     ];
 
-    new global.Core.Router(appRoutes);
+    new global.App.Router(appRoutes);
 
 })(Function('return this')());
