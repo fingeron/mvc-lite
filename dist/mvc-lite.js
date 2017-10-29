@@ -260,10 +260,8 @@
             this.parent.replaceChild(newNode, this);
 
             // Finally if node is a component bootstrap it.
-            if(newNode.isComponent()) {
-                newNode.comp = global.Core.Bootstrap(newNode.self, newNode.inputs);
-                newNode.self = newNode.comp.nodeTree.self;
-            }
+            if(newNode.isComponent())
+                newNode.bootstrap();
         }
     };
 
@@ -310,7 +308,9 @@
     };
 
     CompNode.prototype.isComponent = function() {
-        return this.self && this.self.nodeType === 1 && this.viewNode.controller && !this.iterator;
+        return this.self && this.self.nodeType === 1 &&
+            (this.viewNode.controller || typeof this.self.getAttribute('controller') === 'string') &&
+            !this.iterator;
     };
 
     CompNode.prototype.bootstrap = function() {
@@ -492,6 +492,85 @@
 
     global.Base = global.Base || {};
     global.Base.Model = Model;
+
+})(Function('return this')());
+(function(global) {
+
+    var TAG = "[Route]";
+
+    var Route = function(options) {
+        if(options.hasOwnProperty('path'))
+            this.path = options.path.split('/');
+        else
+            throw { message: TAG + " Route must have a path." };
+
+        if(options.hasOwnProperty('controller')) {
+            this.controller = options.controller;
+        } else if(options.hasOwnProperty('redirect'))
+            this.redirect = options.redirect;
+        else
+            throw { message: TAG + " Route must have a controller." };
+
+        if(Array.isArray(options.children))
+            this.children = options.children.map(function(child) {
+                return new Route(child);
+            });
+    };
+
+    Route.prototype.checkUrl = function(urlParts, matchesArr) {
+        var matchingParts = 0;
+
+        if(this.path.length > urlParts.length)
+            return false;
+
+        for(var i = 0; i < this.path.length; i++) {
+            if(this.path[i] === urlParts[i])
+                matchingParts++;
+        }
+
+        if(this.path.length === matchingParts) {
+            if(this.redirect) {
+                global.Core.Router().navigateTo(this.redirect);
+                return false;
+            }
+            if(!Array.isArray(matchesArr))
+                matchesArr = [];
+            matchesArr.push(this.controller);
+
+            if(this.path.length < urlParts.length) {
+                if(!Array.isArray(this.children))
+                    return false;
+
+                var wasFound = false;
+                urlParts.splice(0, matchingParts);
+                for(i = 0; i < this.children.length; i++) {
+                    if(this.children[i].checkUrl(urlParts, matchesArr)) {
+                        wasFound = matchesArr;
+                        break;
+                    }
+                }
+                return wasFound
+            } else if(Array.isArray(this.children)) {
+                var child = this.children.filter(function(c) {
+                    return c.path.length === 1 && c.path[0] === '';
+                });
+                while(Array.isArray(child) && child.length > 0) {
+                    child = child[0];
+                    matchesArr.push(child.controller);
+                    if(Array.isArray(child.children))
+                        child = child.children.filter(function(c) {
+                            return c.path.length === 0;
+                        });
+                }
+            }
+            return matchesArr;
+        }
+
+        return false;
+    };
+
+    global.Base = global.Base || {};
+    global.Base.Route = Route;
 
 })(Function('return this')());
 (function(global) {
@@ -691,6 +770,147 @@
 })(Function('return this')());
 (function(global) {
 
+    var TAG = "[Router]", routerInstance;
+
+    var Router = function(routes) {
+        // Singleton
+        if(routerInstance)
+            return routerInstance;
+
+        if(Array.isArray(routes)) {
+            // Initializing onhashchange:
+            window.onhashchange = function() {
+                this.navigateTo(window.location.hash);
+            }.bind(this);
+            // Initializing Router
+            try {
+                this.routes = routes.map(function(r) {
+                    return new global.Base.Route(r);
+                });
+            } catch(err) {
+                throw err;
+            }
+            routerInstance = this;
+
+            this.navigateTo(location.hash);
+        } else
+            throw { message: TAG + " 'routes' should be an array of routes." };
+    };
+
+    Router.prototype.navigateTo = function(url) {
+        // First validate url
+        if(url[0] === '#') {
+            if(url[1] !== '/') {
+                url = url.slice(1, url.length);
+                history.pushState(null, '', '#/' + url);
+            } else
+                url = url.slice(2, url.length);
+        } else {
+            history.pushState(null, '', '#/' + url);
+        }
+        if(url !== this.currentPath) {
+            this.currentPath = url;
+
+            var urlResult = this.parseUrl(url);
+            if(urlResult) {
+                if(urlResult.params) {
+                    var params = urlResult.params.split('&'),
+                        paramsObject = {};
+                    for(var i = 0; i < params.length; i++) {
+                        params[i] = params[i].split('=');
+                        paramsObject[params[i][0]] = params[i][1];
+                    }
+                    this.params = paramsObject;
+                }
+                this.stateChange(urlResult)
+            }
+        }
+    };
+
+    Router.prototype.stateChange = function(urlParseResults) {
+        if(!this.state)
+            this.state = {
+                controllers: urlParseResults.controllers,
+                nextController: urlParseResults.controllers[0]
+            };
+        else {
+            var affectedCompNode;
+            for(var i = 0; i < urlParseResults.controllers.length; i++) {
+                if(urlParseResults.controllers[i] !== this.state.controllers[i]) {
+
+                    for(var j = i; j < urlParseResults.controllers.length; j++) {
+                        this.state.controllers[j] = urlParseResults.controllers[j];
+                    } 
+
+                    if(j < this.state.controllers.length)
+                        this.state.controllers.splice(j, this.state.controllers.length);
+
+                    this.state.nextController = urlParseResults.controllers[i];
+                    affectedCompNode = this.state.compNodes[i];
+                    break;
+                }
+            }
+            var comp = affectedCompNode.comp,
+                newCompNode = affectedCompNode.viewNode.generate(comp.$scope);
+            affectedCompNode.parent.replaceChild(newCompNode, affectedCompNode);
+            newCompNode.bootstrap();
+        }
+    };
+
+    Router.prototype.parseUrl = function(url) {
+        var urlParts = url.split('?'),
+            paramsString = urlParts[1];
+
+        // First handling the URL
+        urlParts = urlParts[0].split('/').filter(function(p) {
+            return p !== '#';
+        });
+
+        var match;
+        for(var r = 0; r < this.routes.length && !match; r++) {
+            match = this.routes[r].checkUrl(urlParts);
+        }
+
+        if(match) {
+            return {
+                controllers: match,
+                params: paramsString
+            }
+        } else
+            return false;
+    };
+
+    Router.prototype.nextController = function(compNode) {
+        if(this.state && this.state.nextController) {
+            // Saving nextController and clearing it's data
+            var nextController = this.state.nextController;
+            this.state.nextController = undefined;
+
+            // Searching for it's place in the stack
+            for(var i = 0; i < this.state.controllers.length; i++) {
+                if(nextController === this.state.controllers[i]) {
+                    // Creating an array to save compNodes accordingly
+                    if(!Array.isArray(this.state.compNodes)) this.state.compNodes = [];
+
+                    // Assigning next controller on the stack to nextController
+                    this.state.nextController = this.state.controllers[i+1];
+
+                    // Placing the compNode in it's correct place
+                    this.state.compNodes[i] = compNode;
+                    break;
+                }
+            }
+            return nextController;
+        } else
+            console.error(TAG, "Failed to load next controller, end of list.");
+    };
+
+    global.Core = global.Core || {};
+    global.Core.Router = Router;
+
+})(Function('return this')());
+(function(global) {
+
     var Controllers = {};
     var Injectables = {};
     var Models     = {};
@@ -827,17 +1047,23 @@
                 funcName = matches[1];
                 variables = matches[2].split(',');
 
+                for(var i = 0; i < variables.length; i++) {
+                    try {
+                        with($scope) {
+                            variables[i] = eval(variables[i]);
+                        }
+                    } catch(err) {
+                        throw (this.name + ": " + err.message)
+                    }
+                }
+
                 events[event] = function(funcName, variables) {
                     var func;
                     try {
                         with($scope) {
                             func = eval(funcName);
                         }
-                        var values = [];
-                        for(var i = 0; i < variables.length; i++) {
-                            values[i] = $scope[variables[i]];
-                        }
-                        func.apply(undefined, values);
+                        func.apply(undefined, variables);
                     } catch(err) {
                         throw (this.name + ": " + err.message)
                     }
@@ -922,6 +1148,26 @@
             compNode.self = document.createElement('iterator');
             compNode.multipleNodes = true;
             compNode.iterator = value;
+        }
+    });
+
+})(Function('return this')());
+(function(global) {
+
+    var TAG = "[Router-Outlet]";
+
+    global.App.Injectable('router-outlet', {
+        getter: function(statement, $scope) {
+            return true;
+        },
+        modifier: function(compNode, value) {
+            var Router = global.Core.Router(),
+                controllerName = Router.nextController(compNode),
+                controller = global.App.getController(controllerName);
+
+            if(controller instanceof global.Base.Controller) {
+                compNode.self.setAttribute('controller', controllerName);
+            }
         }
     });
 

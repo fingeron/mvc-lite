@@ -11,17 +11,23 @@
                 funcName = matches[1];
                 variables = matches[2].split(',');
 
+                for(var i = 0; i < variables.length; i++) {
+                    try {
+                        with($scope) {
+                            variables[i] = eval(variables[i]);
+                        }
+                    } catch(err) {
+                        throw (this.name + ": " + err.message)
+                    }
+                }
+
                 events[event] = function(funcName, variables) {
                     var func;
                     try {
                         with($scope) {
                             func = eval(funcName);
                         }
-                        var values = [];
-                        for(var i = 0; i < variables.length; i++) {
-                            values[i] = $scope[variables[i]];
-                        }
-                        func.apply(undefined, values);
+                        func.apply(undefined, variables);
                     } catch(err) {
                         throw (this.name + ": " + err.message)
                     }

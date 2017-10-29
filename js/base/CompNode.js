@@ -78,10 +78,8 @@
             this.parent.replaceChild(newNode, this);
 
             // Finally if node is a component bootstrap it.
-            if(newNode.isComponent()) {
-                newNode.comp = global.Core.Bootstrap(newNode.self, newNode.inputs);
-                newNode.self = newNode.comp.nodeTree.self;
-            }
+            if(newNode.isComponent())
+                newNode.bootstrap();
         }
     };
 
@@ -128,7 +126,9 @@
     };
 
     CompNode.prototype.isComponent = function() {
-        return this.self && this.self.nodeType === 1 && this.viewNode.controller && !this.iterator;
+        return this.self && this.self.nodeType === 1 &&
+            (this.viewNode.controller || typeof this.self.getAttribute('controller') === 'string') &&
+            !this.iterator;
     };
 
     CompNode.prototype.bootstrap = function() {
