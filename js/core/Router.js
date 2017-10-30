@@ -10,7 +10,10 @@
         if(Array.isArray(routes)) {
             // Initializing onhashchange:
             window.onhashchange = function() {
-                this.navigateTo(window.location.hash);
+                if(!this.navigating) {
+                    this.navigateTo(location.hash);
+                }
+                this.navigating = false;
             }.bind(this);
             // Initializing Router
             try {
@@ -32,58 +35,26 @@
         if(url[0] === '#') {
             if(url[1] !== '/') {
                 url = url.slice(1, url.length);
-                history.pushState(null, '', '#/' + url);
             } else
                 url = url.slice(2, url.length);
-        } else {
-            history.pushState(null, '', '#/' + url);
         }
         if(url !== this.currentPath) {
             this.currentPath = url;
 
-            var urlResult = this.parseUrl(url);
-            if(urlResult) {
-                if(urlResult.params) {
-                    var params = urlResult.params.split('&'),
-                        paramsObject = {};
-                    for(var i = 0; i < params.length; i++) {
-                        params[i] = params[i].split('=');
-                        paramsObject[params[i][0]] = params[i][1];
+            var resultsObj = this.parseUrl(url);
+            if(resultsObj) {
+                var results = resultsObj.results;
+                if(results.redirect) {
+                    this.navigateTo(results.redirect);
+                } else {
+                    if(typeof resultsObj.params === 'string') {
+                        resultsObj.params = global.Utils.String.toDictionary(resultsObj.params, '&', '=');
                     }
-                    this.params = paramsObject;
+                    history.pushState(null, '', '#/' + url);
+                    this.stateChange(resultsObj)
                 }
-                this.stateChange(urlResult)
-            }
-        }
-    };
-
-    Router.prototype.stateChange = function(urlParseResults) {
-        if(!this.state)
-            this.state = {
-                controllers: urlParseResults.controllers,
-                nextController: urlParseResults.controllers[0]
-            };
-        else {
-            var affectedCompNode;
-            for(var i = 0; i < urlParseResults.controllers.length; i++) {
-                if(urlParseResults.controllers[i] !== this.state.controllers[i]) {
-
-                    for(var j = i; j < urlParseResults.controllers.length; j++) {
-                        this.state.controllers[j] = urlParseResults.controllers[j];
-                    }
-
-                    if(j < this.state.controllers.length)
-                        this.state.controllers.splice(j, this.state.controllers.length);
-
-                    this.state.nextController = urlParseResults.controllers[i];
-                    affectedCompNode = this.state.compNodes[i];
-                    break;
-                }
-            }
-            var comp = affectedCompNode.comp,
-                newCompNode = affectedCompNode.viewNode.generate(comp.$scope);
-            affectedCompNode.parent.replaceChild(newCompNode, affectedCompNode);
-            newCompNode.bootstrap();
+            } else
+                console.error("UNKNOWN ROUTE " + url);
         }
     };
 
@@ -96,18 +67,65 @@
             return p !== '#';
         });
 
-        var match;
-        for(var r = 0; r < this.routes.length && !match; r++) {
-            match = this.routes[r].checkUrl(urlParts);
+        var results;
+        for(var r = 0; r < this.routes.length && !results; r++) {
+            results = this.routes[r].checkUrl(urlParts);
         }
 
-        if(match) {
+        if(results) {
             return {
-                controllers: match,
+                results: results,
                 params: paramsString
             }
         } else
             return false;
+    };
+
+    Router.prototype.stateChange = function(urlParseResults) {
+        var results = urlParseResults.results;
+        if(!this.state)
+            this.state = {
+                controllers: results.controllers,
+                params: urlParseResults.params,
+                nextController: results.controllers[0]
+            };
+        else {
+            var affectedCompNode;
+            for(var i = 0; i < results.controllers.length; i++) {
+                if(results.controllers[i] !== this.state.controllers[i]) {
+
+                    for(var j = i; j < results.controllers.length; j++) {
+                        this.state.controllers[j] = results.controllers[j];
+                    }
+
+                    if(j < this.state.controllers.length)
+                        this.state.controllers.splice(j, this.state.controllers.length);
+
+                    this.state.nextController = results.controllers[i];
+                    affectedCompNode = this.state.compNodes[i];
+                    break;
+                }
+            }
+            // Params check
+            if(typeof urlParseResults.params === 'object') {
+                for(var param in urlParseResults.params) if(urlParseResults.params.hasOwnProperty(param))
+                    this.updateParam(param, urlParseResults.params[param]);
+                for(param in this.state.params) if(this.state.params.hasOwnProperty(param))
+                    if(!urlParseResults.params[param])
+                        this.updateParam(param);
+            } else {
+                var stateParams = this.state.params;
+                if(typeof stateParams === 'object')
+                    for(param in stateParams) if(stateParams.hasOwnProperty(param))
+                        this.updateParam(param);
+            }
+            if(affectedCompNode instanceof global.Base.CompNode) {
+                var comp = affectedCompNode.comp,
+                    newCompNode = affectedCompNode.viewNode.generate(comp.$scope);
+                affectedCompNode.parent.replaceChild(newCompNode, affectedCompNode);
+                newCompNode.bootstrap();
+            }
+        }
     };
 
     Router.prototype.nextController = function(compNode) {
@@ -133,6 +151,56 @@
             return nextController;
         } else
             console.error(TAG, "Failed to load next controller, end of list.");
+    };
+
+    Router.prototype.updateParam = function(key, value) {
+        var params = this.params(), changes = 0;
+        if(params[key] !== value) {
+            if(!value || value.length === 0)
+                delete params[key];
+            else
+                params[key] = value;
+            changes++;
+
+            // emit to subscriptions
+            if(this.paramSubscriptions) {
+                var subsObservable = this.paramSubscriptions[key];
+                if(subsObservable instanceof global.Utils.Observable) {
+                    subsObservable.next(value);
+                }
+            }
+        }
+        if(changes > 0) {
+            this.navigating = true;
+            var currUrl = location.hash;
+            currUrl = currUrl.split('?')[0] + '?';
+            for(var param in params) if(params.hasOwnProperty(param)) {
+                currUrl += param + '=' + params[param] + '&'
+            }
+            location.hash = currUrl.substr(0, currUrl.length - 1);
+            this.currentPath = location.hash.substr(2, location.hash.length);
+        }
+        if(this.state) this.state.params = params;
+    };
+
+    Router.prototype.subscribeToParam = function(param, listener) {
+        if(typeof this.paramSubscriptions !== 'object')
+            this.paramSubscriptions = {};
+        var subs = this.paramSubscriptions;
+        if(!(subs[param] instanceof global.Utils.Observable))
+            subs[param] = new global.Utils.Observable();
+        var subscription = subs[param].subscribe(listener);
+        if(this.state && this.state.params) {
+            listener(this.state.params[param]);
+        } else
+            listener();
+        return subscription;
+    };
+
+    Router.prototype.params = function() {
+        return (this.state && typeof this.state.params === 'object') ?
+                this.state.params :
+                {};
     };
 
     global.Core = global.Core || {};

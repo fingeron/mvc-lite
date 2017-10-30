@@ -34,8 +34,7 @@
 
         if(this.path.length === matchingParts) {
             if(this.redirect) {
-                global.App.Router().navigateTo(this.redirect);
-                return false;
+                return { redirect: this.redirect };
             }
             if(!Array.isArray(matchesArr))
                 matchesArr = [];
@@ -67,7 +66,9 @@
                         });
                 }
             }
-            return matchesArr;
+            return {
+                controllers: matchesArr
+            };
         }
 
         return false;

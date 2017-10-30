@@ -12,7 +12,8 @@
     };
 
     Component.prototype.update = function() {
-        this.nodeTree.compare(this.$scope);
+        if(this.nodeTree instanceof global.Base.CompNode)
+            this.nodeTree.compare(this.$scope);
     };
 
     Component.prototype.getInput = function(name) {

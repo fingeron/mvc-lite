@@ -17,14 +17,17 @@
             });
             return arr;
         },
-        toDictionary: function(str, separator) {
+        toDictionary: function(str, separator, equalizer) {
             if(typeof separator !== 'string')
                 separator = ',';
+            if(typeof equalizer !== 'string')
+                equalizer = ':';
             var entries = str.split(separator),
                 matchGroups,
                 dic = {};
             entries.forEach(function(entry) {
-                matchGroups = (/([\w-]+): *(.+)/g).exec(entry.trim());
+                var regexp = new RegExp('([\\w-]+)' + equalizer + ' *(.+)');
+                matchGroups = regexp.exec(entry.trim());
                 dic[matchGroups[1]] = matchGroups[2];
             });
             return dic;
