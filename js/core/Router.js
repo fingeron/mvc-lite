@@ -47,7 +47,7 @@
                 if(results.redirect) {
                     this.navigateTo(results.redirect);
                 } else {
-                    if(typeof resultsObj.params === 'string') {
+                    if(typeof resultsObj.params === 'string' && resultsObj.params.length > 0) {
                         resultsObj.params = global.Utils.String.toDictionary(resultsObj.params, '&', '=');
                     }
                     history.pushState(null, '', '#/' + url);

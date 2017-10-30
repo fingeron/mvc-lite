@@ -28,7 +28,8 @@
             entries.forEach(function(entry) {
                 var regexp = new RegExp('([\\w-]+)' + equalizer + ' *(.+)');
                 matchGroups = regexp.exec(entry.trim());
-                dic[matchGroups[1]] = matchGroups[2];
+                if(Array.isArray(matchGroups) && matchGroups.length === 3)
+                    dic[matchGroups[1]] = matchGroups[2];
             });
             return dic;
         }
