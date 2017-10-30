@@ -27,10 +27,11 @@
                         with($scope) {
                             func = eval(funcName);
                         }
-                        func.apply(undefined, variables);
                     } catch(err) {
                         throw (this.name + ": " + err.message)
                     }
+                    if(typeof func === 'function')
+                        func.apply(undefined, variables);
                 }.bind(this, funcName, variables);
             }
             return events;
