@@ -192,8 +192,7 @@
         var subscription = subs[param].subscribe(listener);
         if(this.state && this.state.params) {
             listener(this.state.params[param]);
-        } else
-            listener();
+        }
         return subscription;
     };
 
