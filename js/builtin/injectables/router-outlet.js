@@ -3,7 +3,7 @@
     var TAG = "[Router-Outlet]";
 
     global.App.Injectable('router-outlet', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             return true;
         },
         modifier: function(compNode, value) {

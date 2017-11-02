@@ -1,7 +1,7 @@
 (function(global) {
 
     global.App.Injectable('bind-events', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var events = global.Utils.String.toDictionary(statement),
                 matches, funcName, variables;
 
@@ -13,7 +13,7 @@
 
                 for(var i = 0; i < variables.length; i++) {
                     try {
-                        with($scope) {
+                        with(comp.$scope) {
                             variables[i] = eval(variables[i]);
                         }
                     } catch(err) {
@@ -24,7 +24,7 @@
                 events[event] = function(funcName, variables) {
                     var func;
                     try {
-                        with($scope) {
+                        with(comp.$scope) {
                             func = eval(funcName);
                         }
                     } catch(err) {

@@ -1,7 +1,12 @@
 (function(global) {
 
-    var Component = function(el, $scope) {
+    var Component = function(el, parent, $scope) {
         this.el = el;
+        if(parent instanceof Component) {
+            this.parent = parent;
+            parent.children = parent.children || [];
+            parent.children.push(this);
+        }
         this.$scope = $scope;
     };
 
@@ -13,7 +18,7 @@
 
     Component.prototype.update = function() {
         if(this.nodeTree instanceof global.Base.CompNode)
-            this.nodeTree.compare(this.$scope);
+            this.nodeTree.compare(this);
     };
 
     Component.prototype.getInput = function(name) {

@@ -5,11 +5,11 @@
         justModify: true,
 
         // Functions
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var classes = global.Utils.String.toDictionary(statement),
                 value;
             try {
-                with($scope) {
+                with(comp.$scope) {
                     for(var className in classes) if(classes.hasOwnProperty(className)) {
                         value = eval(classes[className]);
                         classes[className] = !!value;

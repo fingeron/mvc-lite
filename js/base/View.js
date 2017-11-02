@@ -2,9 +2,15 @@
 
     var viewOptions = global.Config.viewOptions;
 
-    var View = function(name, relPath) {
+    var View = function(name, relPath, template) {
         this.name = name;
-        this.loadTemplate(relPath);
+
+        if(!template)
+            this.loadTemplate(relPath);
+        else {
+            this.templateSrc = template;
+        }
+
         this.buildNodeTree();
     };
 
@@ -47,10 +53,10 @@
         }
     };
 
-    View.prototype.generate = function($scope) {
+    View.prototype.generate = function(comp) {
         var componentTree = new global.Base.CompNode(this.nodeTree);
         for(var c = 0; c < this.nodeTree.children.length; c++) {
-            componentTree.appendChild(this.nodeTree.children[c].generate($scope, componentTree));
+            componentTree.appendChild(this.nodeTree.children[c].generate(comp));
         }
         return componentTree;
     };

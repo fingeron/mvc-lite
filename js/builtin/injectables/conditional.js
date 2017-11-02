@@ -1,10 +1,10 @@
 (function(global) {
 
     global.App.Injectable('bind-if', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var result;
             try {
-                with($scope) { result = eval(statement); }
+                with(comp.$scope) { result = eval(statement); }
             } catch(err) {
                 throw this.name + ": Couldn't evaluate '" + statement + "'.";
             }

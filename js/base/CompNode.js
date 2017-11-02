@@ -8,14 +8,15 @@
         this.children = [];
     };
 
-    CompNode.prototype.compare = function($scope) {
-        var updated = false;
+    CompNode.prototype.compare = function(comp) {
+        var updated = false, $scope = comp.$scope;
+
         if(Array.isArray(this.viewNode.directives)) {
             var directives = this.viewNode.directives,
                 injectable, getterValue, skipped = 0;
             for(var i = 0; i < directives.length; i++) if(directives[i]) {
                 injectable = directives[i].injectable;
-                getterValue = injectable.getter(directives[i].statement, $scope);
+                getterValue = injectable.getter(directives[i].statement, comp);
 
                 // If injectable getter with current scope result is
                 // different from current one, update the CompNode.
@@ -51,10 +52,10 @@
                 for(i = 0; i < iterator.array.length; i++) {
                     $scope[iterator.varName] = iterator.array[i];
                     if(this.children[i] instanceof CompNode) {
-                        this.children[i].compare($scope);
+                        this.children[i].compare(comp);
                         this.children[i].iteratorValue = iterator.array[i];
                     } else {
-                        newCompNode = viewNode.generate($scope);
+                        newCompNode = viewNode.generate(comp);
                         newCompNode.iteratorValue = iterator.array[i];
                         this.appendChild(newCompNode);
                     }
@@ -64,12 +65,12 @@
                 viewNode.directives[tempDirectivePos] = tempDirective;
             } else {
                 this.children.forEach(function(child) {
-                    child.compare($scope);
+                    child.compare(comp);
                 });
             }
         } else {
             // If there were changes, generate a new node.
-            var newNode = this.viewNode.generate($scope);
+            var newNode = this.viewNode.generate(comp);
 
             if(this.iteratorValue)
                 newNode.iteratorValue = this.iteratorValue;
@@ -79,7 +80,7 @@
 
             // Finally if node is a component bootstrap it.
             if(newNode.isComponent())
-                newNode.bootstrap();
+                newNode.bootstrap(comp);
         }
     };
 
@@ -131,8 +132,8 @@
             !this.iterator;
     };
 
-    CompNode.prototype.bootstrap = function() {
-        this.comp = global.Core.Bootstrap(this.self, this.inputs);
+    CompNode.prototype.bootstrap = function(parent) {
+        this.comp = global.Core.Bootstrap(this.self, parent, this.inputs);
         this.self = this.comp.nodeTree.self;
     };
 

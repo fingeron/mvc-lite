@@ -199,14 +199,15 @@
         this.children = [];
     };
 
-    CompNode.prototype.compare = function($scope) {
-        var updated = false;
+    CompNode.prototype.compare = function(comp) {
+        var updated = false, $scope = comp.$scope;
+
         if(Array.isArray(this.viewNode.directives)) {
             var directives = this.viewNode.directives,
                 injectable, getterValue, skipped = 0;
             for(var i = 0; i < directives.length; i++) if(directives[i]) {
                 injectable = directives[i].injectable;
-                getterValue = injectable.getter(directives[i].statement, $scope);
+                getterValue = injectable.getter(directives[i].statement, comp);
 
                 // If injectable getter with current scope result is
                 // different from current one, update the CompNode.
@@ -242,10 +243,10 @@
                 for(i = 0; i < iterator.array.length; i++) {
                     $scope[iterator.varName] = iterator.array[i];
                     if(this.children[i] instanceof CompNode) {
-                        this.children[i].compare($scope);
+                        this.children[i].compare(comp);
                         this.children[i].iteratorValue = iterator.array[i];
                     } else {
-                        newCompNode = viewNode.generate($scope);
+                        newCompNode = viewNode.generate(comp);
                         newCompNode.iteratorValue = iterator.array[i];
                         this.appendChild(newCompNode);
                     }
@@ -255,12 +256,12 @@
                 viewNode.directives[tempDirectivePos] = tempDirective;
             } else {
                 this.children.forEach(function(child) {
-                    child.compare($scope);
+                    child.compare(comp);
                 });
             }
         } else {
             // If there were changes, generate a new node.
-            var newNode = this.viewNode.generate($scope);
+            var newNode = this.viewNode.generate(comp);
 
             if(this.iteratorValue)
                 newNode.iteratorValue = this.iteratorValue;
@@ -270,7 +271,7 @@
 
             // Finally if node is a component bootstrap it.
             if(newNode.isComponent())
-                newNode.bootstrap();
+                newNode.bootstrap(comp);
         }
     };
 
@@ -322,8 +323,8 @@
             !this.iterator;
     };
 
-    CompNode.prototype.bootstrap = function() {
-        this.comp = global.Core.Bootstrap(this.self, this.inputs);
+    CompNode.prototype.bootstrap = function(parent) {
+        this.comp = global.Core.Bootstrap(this.self, parent, this.inputs);
         this.self = this.comp.nodeTree.self;
     };
 
@@ -333,10 +334,15 @@
 })(Function('return this')());
 (function(global) {
 
-    var Component = function(el, $scope) {
+    var Component = function(el, parent, $scope) {
         this.el = el;
+        if(parent instanceof Component) {
+            this.parent = parent;
+            parent.children = parent.children || [];
+            parent.children.push(this);
+        }
         this.$scope = $scope;
-    };
+    }; 
 
     Component.prototype.setView = function(compNode) {
         this.el.parentNode.replaceChild(compNode.self, this.el);
@@ -346,7 +352,7 @@
 
     Component.prototype.update = function() {
         if(this.nodeTree instanceof global.Base.CompNode)
-            this.nodeTree.compare(this.$scope);
+            this.nodeTree.compare(this);
     };
 
     Component.prototype.getInput = function(name) {
@@ -369,12 +375,17 @@
         this.constructor = constructor;
     };
 
-    Controller.prototype.generateComponent = function(el, inputs) {
+    Controller.prototype.generateComponent = function(el, parent, inputs) {
         // Creating new scope object
         var $scope = {};
 
         // Generating new component
-        var comp = new global.Base.Component(el, $scope);
+        var comp = new global.Base.Component(el, parent, $scope);
+
+        // Keeping the element's content as original HTML
+        if(el.innerHTML.length > 0) {
+            comp.subView = new global.Base.View('content-outlet', null, el.innerHTML);
+        }
 
         // If inputs assigning them to comp
         if(typeof inputs === 'object')
@@ -389,7 +400,7 @@
         this.constructor.call(this, $scope, comp.update.bind(comp));
 
         // Eventually setting the view for the component
-        comp.setView(this.view.generate($scope));
+        comp.setView(this.view.generate(comp));
 
         return comp;
     };
@@ -421,12 +432,13 @@
         // Other options:
         this.keepAttribute = !!options.keepAttribute;
         this.justModify = !!options.justModify;
+        this.useComponentInGetter = !!options.useComponentInGetter;
     };
 
-    Injectable.prototype.getter = function(statement, $scope) {
+    Injectable.prototype.getter = function(statement, comp) {
         var result;
         try {
-            with($scope) { result = eval(statement); }
+            with(comp.$scope) { result = eval(statement); }
         } catch(err) {
             console.error(TAG, this.name + ':', "Couldn't evaluate '" + statement + "'.");
         }
@@ -588,9 +600,15 @@
 
     var viewOptions = global.Config.viewOptions;
 
-    var View = function(name, relPath) {
+    var View = function(name, relPath, template) {
         this.name = name;
-        this.loadTemplate(relPath);
+
+        if(!template)
+            this.loadTemplate(relPath);
+        else {
+            this.templateSrc = template;
+        }
+
         this.buildNodeTree();
     };
 
@@ -633,10 +651,10 @@
         }
     };
 
-    View.prototype.generate = function($scope) {
+    View.prototype.generate = function(comp) {
         var componentTree = new global.Base.CompNode(this.nodeTree);
         for(var c = 0; c < this.nodeTree.children.length; c++) {
-            componentTree.appendChild(this.nodeTree.children[c].generate($scope, componentTree));
+            componentTree.appendChild(this.nodeTree.children[c].generate(comp));
         }
         return componentTree;
     };
@@ -679,8 +697,9 @@
         }
     };
 
-    ViewNode.prototype.generate = function($scope) {
-        var compNode = new global.Base.CompNode(this);
+    ViewNode.prototype.generate = function(comp) {
+        var compNode = new global.Base.CompNode(this),
+            $scope = comp.$scope;
 
         if(Array.isArray(this.directives)) {
             var directive, i;
@@ -690,7 +709,7 @@
                 directive = this.directives[i];
 
                 // Get value from injectable getter
-                var value = directive.injectable.getter(directive.statement, $scope);
+                var value = directive.injectable.getter(directive.statement, comp);
 
                 // Running modifier on created compNode with getter value
                 directive.injectable.modifier(compNode, value);
@@ -720,11 +739,11 @@
                 var childCount = 0;
                 for(i = 0; i < arr.length; i++) {
                     $scope[compNode.iterator.varName] = arr[i];
-                    childNode = this.generate($scope);
+                    childNode = this.generate(comp);
                     childNode.iteratorValue = arr[i];
                     if(childNode.self) childCount++;
                     compNode.appendChild(childNode);
-                    if(childNode.isComponent()) childNode.bootstrap();
+                    if(childNode.isComponent()) childNode.bootstrap(comp);
                 }
 
                 // Re-assigning values.
@@ -741,10 +760,14 @@
             var generated;
             // Recursively appending ViewNode's children to given CompNode.
             for(var i = 0; i < viewNode.children.length; i++) {
-                generated = viewNode.children[i].generate($scope, node);
+                generated = viewNode.children[i].generate(comp);
                 node.appendChild(generated);
 
-                if(generated.isComponent()) generated.bootstrap();
+                if(generated.replaceSelfWith) {
+                    generated.self.parentNode.replaceChild(generated.replaceSelfWith.self, generated.self);
+                    delete generated.replaceSelfWith;
+                }
+                if(generated.isComponent()) generated.bootstrap(comp);
             }
         }
     };
@@ -755,11 +778,11 @@
 })(Function('return this')());
 (function(global) {
 
-    var Bootstrap = function(el, inputs) {
+    var Bootstrap = function(el, parent, inputs) {
         if(el.nodeType === 1) {
             var controller = getControllerFromEl(el);
             if(controller instanceof global.Base.Controller) {
-                return controller.generateComponent(el, inputs);
+                return controller.generateComponent(el, parent, inputs);
             } else
                 throw { message: "Controller " + el.getAttribute('controller') + " not found." };
         } else
@@ -902,9 +925,9 @@
             }
             if(affectedCompNode instanceof global.Base.CompNode) {
                 var comp = affectedCompNode.comp,
-                    newCompNode = affectedCompNode.viewNode.generate(comp.$scope);
+                    newCompNode = affectedCompNode.viewNode.generate(comp);
                 affectedCompNode.parent.replaceChild(newCompNode, affectedCompNode);
-                newCompNode.bootstrap();
+                newCompNode.bootstrap(comp.parent);
             }
         }
     };
@@ -1076,11 +1099,11 @@
         justModify: true,
 
         // Functions
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var classes = global.Utils.String.toDictionary(statement),
                 value;
             try {
-                with($scope) {
+                with(comp.$scope) {
                     for(var className in classes) if(classes.hasOwnProperty(className)) {
                         value = eval(classes[className]);
                         classes[className] = !!value;
@@ -1104,10 +1127,10 @@
 (function(global) {
 
     global.App.Injectable('bind-if', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var result;
             try {
-                with($scope) { result = eval(statement); }
+                with(comp.$scope) { result = eval(statement); }
             } catch(err) {
                 throw this.name + ": Couldn't evaluate '" + statement + "'.";
             }
@@ -1123,8 +1146,23 @@
 })(Function('return this')());
 (function(global) {
 
+    global.App.Injectable('content-outlet', {
+        // Functions
+        getter: function(statement, comp) {
+            return comp;
+        },
+        modifier: function(compNode, comp) {
+            if(comp.subView) {
+                compNode.replaceSelfWith = comp.subView.generate(comp.parent);
+            }
+        }
+    });
+
+})(Function('return this')());
+(function(global) {
+
     global.App.Injectable('bind-events', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var events = global.Utils.String.toDictionary(statement),
                 matches, funcName, variables;
 
@@ -1136,7 +1174,7 @@
 
                 for(var i = 0; i < variables.length; i++) {
                     try {
-                        with($scope) {
+                        with(comp.$scope) {
                             variables[i] = eval(variables[i]);
                         }
                     } catch(err) {
@@ -1147,7 +1185,7 @@
                 events[event] = function(funcName, variables) {
                     var func;
                     try {
-                        with($scope) {
+                        with(comp.$scope) {
                             func = eval(funcName);
                         }
                     } catch(err) {
@@ -1180,11 +1218,11 @@
 (function(global) {
 
     global.App.Injectable('input', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var inputs = global.Utils.String.toDictionary(statement);
             try {
                 for(var input in inputs) if(inputs.hasOwnProperty(input)) {
-                    with($scope) {
+                    with(comp.$scope) {
                         inputs[input] = eval(inputs[input]);
                     }
                 }
@@ -1212,13 +1250,13 @@
 (function(global) {
 
     global.App.Injectable('bind-for', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var words = statement.split(' '),
                 result = {};
             for(var w = 0; w < words.length; w++) {
                 if(words[w] === 'in' && w > 0 && w < (words.length-1)) {
                     try {
-                        with($scope) {
+                        with(comp.$scope) {
                             result.array = eval(words[w+1]);
                         }
                     } catch(err) {
@@ -1245,7 +1283,7 @@
     var TAG = "[Router-Outlet]";
 
     global.App.Injectable('router-outlet', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             return true;
         },
         modifier: function(compNode, value) {

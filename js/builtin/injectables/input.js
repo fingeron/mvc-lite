@@ -1,11 +1,11 @@
 (function(global) {
 
     global.App.Injectable('input', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var inputs = global.Utils.String.toDictionary(statement);
             try {
                 for(var input in inputs) if(inputs.hasOwnProperty(input)) {
-                    with($scope) {
+                    with(comp.$scope) {
                         inputs[input] = eval(inputs[input]);
                     }
                 }

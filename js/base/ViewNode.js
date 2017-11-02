@@ -32,8 +32,9 @@
         }
     };
 
-    ViewNode.prototype.generate = function($scope) {
-        var compNode = new global.Base.CompNode(this);
+    ViewNode.prototype.generate = function(comp) {
+        var compNode = new global.Base.CompNode(this),
+            $scope = comp.$scope;
 
         if(Array.isArray(this.directives)) {
             var directive, i;
@@ -43,7 +44,7 @@
                 directive = this.directives[i];
 
                 // Get value from injectable getter
-                var value = directive.injectable.getter(directive.statement, $scope);
+                var value = directive.injectable.getter(directive.statement, comp);
 
                 // Running modifier on created compNode with getter value
                 directive.injectable.modifier(compNode, value);
@@ -73,11 +74,11 @@
                 var childCount = 0;
                 for(i = 0; i < arr.length; i++) {
                     $scope[compNode.iterator.varName] = arr[i];
-                    childNode = this.generate($scope);
+                    childNode = this.generate(comp);
                     childNode.iteratorValue = arr[i];
                     if(childNode.self) childCount++;
                     compNode.appendChild(childNode);
-                    if(childNode.isComponent()) childNode.bootstrap();
+                    if(childNode.isComponent()) childNode.bootstrap(comp);
                 }
 
                 // Re-assigning values.
@@ -94,10 +95,14 @@
             var generated;
             // Recursively appending ViewNode's children to given CompNode.
             for(var i = 0; i < viewNode.children.length; i++) {
-                generated = viewNode.children[i].generate($scope, node);
+                generated = viewNode.children[i].generate(comp);
                 node.appendChild(generated);
 
-                if(generated.isComponent()) generated.bootstrap();
+                if(generated.replaceSelfWith) {
+                    generated.self.parentNode.replaceChild(generated.replaceSelfWith.self, generated.self);
+                    delete generated.replaceSelfWith;
+                }
+                if(generated.isComponent()) generated.bootstrap(comp);
             }
         }
     };

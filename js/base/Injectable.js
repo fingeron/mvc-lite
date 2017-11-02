@@ -21,12 +21,13 @@
         // Other options:
         this.keepAttribute = !!options.keepAttribute;
         this.justModify = !!options.justModify;
+        this.useComponentInGetter = !!options.useComponentInGetter;
     };
 
-    Injectable.prototype.getter = function(statement, $scope) {
+    Injectable.prototype.getter = function(statement, comp) {
         var result;
         try {
-            with($scope) { result = eval(statement); }
+            with(comp.$scope) { result = eval(statement); }
         } catch(err) {
             console.error(TAG, this.name + ':', "Couldn't evaluate '" + statement + "'.");
         }

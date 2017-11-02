@@ -1,13 +1,13 @@
 (function(global) {
 
     global.App.Injectable('bind-for', {
-        getter: function(statement, $scope) {
+        getter: function(statement, comp) {
             var words = statement.split(' '),
                 result = {};
             for(var w = 0; w < words.length; w++) {
                 if(words[w] === 'in' && w > 0 && w < (words.length-1)) {
                     try {
-                        with($scope) {
+                        with(comp.$scope) {
                             result.array = eval(words[w+1]);
                         }
                     } catch(err) {

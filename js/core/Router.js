@@ -121,9 +121,9 @@
             }
             if(affectedCompNode instanceof global.Base.CompNode) {
                 var comp = affectedCompNode.comp,
-                    newCompNode = affectedCompNode.viewNode.generate(comp.$scope);
+                    newCompNode = affectedCompNode.viewNode.generate(comp);
                 affectedCompNode.parent.replaceChild(newCompNode, affectedCompNode);
-                newCompNode.bootstrap();
+                newCompNode.bootstrap(comp.parent);
             }
         }
     };
