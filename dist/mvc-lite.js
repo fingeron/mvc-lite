@@ -239,9 +239,13 @@
                     tempDirectivePos = i,
                     newCompNode;
 
+                // Ignoring the iterator directive for now
                 viewNode.directives[tempDirectivePos] = undefined;
+
                 for(i = 0; i < iterator.array.length; i++) {
+                    // Injecting the proper value to scope
                     $scope[iterator.varName] = iterator.array[i];
+
                     if(this.children[i] instanceof CompNode) {
                         this.children[i].compare(comp);
                         this.children[i].iteratorValue = iterator.array[i];
@@ -342,7 +346,7 @@
             parent.children.push(this);
         }
         this.$scope = $scope;
-    }; 
+    };
 
     Component.prototype.setView = function(compNode) {
         this.el.parentNode.replaceChild(compNode.self, this.el);
@@ -1169,6 +1173,10 @@
             for(var event in events) if(events.hasOwnProperty(event)) {
                 var regEx = new RegExp("^(.+)\\((.*)\\)$");
                 matches = events[event].match(regEx);
+
+                if(!Array.isArray(matches) || matches.length < 2)
+                    throw (this.name + ": Invalid statement, expecting: [event: func()]");
+
                 funcName = matches[1];
                 variables = matches[2].split(',');
 
@@ -1182,7 +1190,7 @@
                     }
                 }
 
-                events[event] = function(funcName, variables) {
+                events[event] = function(funcName, variables, el) {
                     var func;
                     try {
                         with(comp.$scope) {
@@ -1192,7 +1200,7 @@
                         throw (this.name + ": " + err.message)
                     }
                     if(typeof func === 'function')
-                        func.apply(undefined, variables);
+                        func.apply(el, variables);
                 }.bind(this, funcName, variables);
             }
             return events;
@@ -1202,7 +1210,7 @@
                 compNode.self.addEventListener(event, function(callback, e) {
                     if(e && e.preventDefault) e.preventDefault();
                     try {
-                        callback();
+                        callback(e.target);
                     } catch(err) {
                         console.error('[Injectable]', err);
                     }

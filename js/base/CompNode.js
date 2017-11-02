@@ -48,9 +48,13 @@
                     tempDirectivePos = i,
                     newCompNode;
 
+                // Ignoring the iterator directive for now
                 viewNode.directives[tempDirectivePos] = undefined;
+
                 for(i = 0; i < iterator.array.length; i++) {
+                    // Injecting the proper value to scope
                     $scope[iterator.varName] = iterator.array[i];
+
                     if(this.children[i] instanceof CompNode) {
                         this.children[i].compare(comp);
                         this.children[i].iteratorValue = iterator.array[i];
