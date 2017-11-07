@@ -18,13 +18,13 @@
             }
             return result;
         },
-        compare: function(oldVal, newVal) {
-            return oldVal.array === newVal.array;
-        },
         modifier: function(compNode, value) {
             compNode.self = document.createElement('iterator');
             compNode.multipleNodes = true;
             compNode.iterator = value;
+        },
+        compare: function(oldVal, newVal) {
+            return oldVal.array === newVal.array;
         }
     });
 

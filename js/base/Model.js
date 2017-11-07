@@ -11,6 +11,8 @@
     };
 
     Model.prototype.init = function() {
+        this.data = [];
+
         if(typeof this.initFunc !== 'function') {
             throw { message: this.name + ": Couldn't initialize the model (initFunc err)" };
         } else {
@@ -20,11 +22,17 @@
         }
     };
 
-    Model.prototype.setData = function(data, /*optional:*/ eventName) {
-        this.data = data;
+    Model.prototype.setData = function(data, merge, /*optional:*/ eventName) {
+        merge = !!merge;
+        if(!merge || !this.data)
+            this.data = data;
+        else {
+            for(var i = 0; i < data.length; i++)
+                this.data.push(data[i]);
+        }
 
         // If eventName isn't specified default to 'setData'.
-        this.emit(eventName || 'setData', data);
+        this.emit(eventName || 'setData', this.data);
     };
 
     Model.prototype.emit = function() {

@@ -21,11 +21,11 @@
             this.nodeTree.compare(this);
     };
 
-    Component.prototype.getInput = function(name) {
+    Component.prototype.getInput = function(name, defaultValue) {
         if(this.inputs && this.inputs.hasOwnProperty(name))
             return this.inputs[name];
         else {
-            throw { message: "Input " + name + " doesn't exist." };
+            return defaultValue;
         }
     };
 

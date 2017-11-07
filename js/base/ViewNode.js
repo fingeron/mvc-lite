@@ -71,6 +71,7 @@
                 // Removing the directive temporarily
                 this.directives[i] = undefined;
 
+                if(!Array.isArray(arr)) debugger;
                 var childCount = 0;
                 for(i = 0; i < arr.length; i++) {
                     $scope[compNode.iterator.varName] = arr[i];

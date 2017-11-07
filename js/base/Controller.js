@@ -23,8 +23,8 @@
             comp.inputs = inputs;
 
         // Provide the $scope with a function to retrieve inputs
-        $scope.getInput = function(name) {
-            $scope[name] = this.getInput(name);
+        $scope.getInput = function(name, defaultValue) {
+            $scope[name] = this.getInput(name, defaultValue);
         }.bind(comp);
 
         // Running the constructor
