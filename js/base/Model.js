@@ -17,12 +17,12 @@
             throw { message: this.name + ": Couldn't initialize the model (initFunc err)" };
         } else {
             this.initFunc(function(data) {
-                this.setData(data);
+                this.setData(data, true);
             }.bind(this));
         }
     };
 
-    Model.prototype.setData = function(data, merge, /*optional:*/ eventName) {
+    Model.prototype.setData = function(data, merge, eventName) {
         merge = !!merge;
         if(!merge || !this.data)
             this.data = data;

@@ -45,7 +45,7 @@
                 compNode.self.addEventListener(event, function(callback, e) {
                     if(e && e.preventDefault) e.preventDefault();
                     try {
-                        callback(e.target);
+                        callback(e.currentTarget);
                     } catch(err) {
                         console.error('[Injectable]', err);
                     }

@@ -28,9 +28,11 @@
                         updated = true;
                         break;
                     }
-                } else if(getterValue && Array.isArray(getterValue.array)) {
-                    break;
                 }
+                else if(getterValue && Array.isArray(getterValue.array))
+                    break;
+                else if(getterValue === false && typeof this.self === 'undefined')
+                    break;
             } else
                 skipped++;
         }
@@ -125,9 +127,12 @@
     };
 
     CompNode.prototype.removeChild = function(child) {
+        if(Array.isArray(child.children)) {
+            for(var i = 0; i < child.children; i++)
+                child.removeChild(child.children[i]);
+        }
         this.self.removeChild(child.self);
         child.self = undefined;
-        child.children.splice(0, child.children.length);
     };
 
     CompNode.prototype.isComponent = function() {
