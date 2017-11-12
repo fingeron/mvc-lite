@@ -102,8 +102,7 @@
         newNode.parent = child.parent;
 
         if(newNode.self && child.self) {
-            this.self.replaceChild(newNode.self, child.self);
-            this.children.splice(this.children.indexOf(child), 1, newNode);
+            this.removeChild(child, newNode)
         } else if(newNode.self && !child.self) {
             var childIndex = this.children.indexOf(child);
             if(childIndex >= 0) {
@@ -126,7 +125,7 @@
         }
     };
 
-    CompNode.prototype.removeChild = function(child) {
+    CompNode.prototype.removeChild = function(child, replace) {
         if(Array.isArray(child.children)) {
             for(var i = 0; i < child.children; i++)
                 child.removeChild(child.children[i]);
@@ -135,7 +134,13 @@
             child.comp.onDestroy();
             delete child.comp;
         }
-        this.self.removeChild(child.self);
+
+        if(replace) {
+            this.children.splice(this.children.indexOf(child), 1, replace);
+            this.self.replaceChild(replace.self, child.self);
+        } else {
+            this.self.removeChild(child.self);
+        }
         child.self = undefined;
     };
 
