@@ -58,9 +58,10 @@
         this.events[event].push(listener);
 
         return {
-            unsubscribe: function(listener) {
-                this.events.splice(this.events.indexOf(listener), 1);
-            }.bind(this, listener)
+            unsubscribe: function(event, listener) {
+                var index = this.events[event].indexOf(listener);
+                this.events[event].splice(index, 1);
+            }.bind(this, event, listener)
         };
     };
 

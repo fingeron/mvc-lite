@@ -131,6 +131,10 @@
             for(var i = 0; i < child.children; i++)
                 child.removeChild(child.children[i]);
         }
+        if(child.comp instanceof global.Base.Component) {
+            child.comp.onDestroy();
+            delete child.comp;
+        }
         this.self.removeChild(child.self);
         child.self = undefined;
     };

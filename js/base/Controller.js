@@ -27,6 +27,12 @@
             $scope[name] = this.getInput(name, defaultValue);
         }.bind(comp);
 
+        // Provide the $scope with option to hold component subscriptions
+        $scope.addSubscription = function(subscription) {
+            this.subscriptions = this.subscriptions || [];
+            this.subscriptions.push(subscription);
+        }.bind(comp);
+
         // Running the constructor
         this.constructor.call(this, $scope, comp.update.bind(comp));
 
