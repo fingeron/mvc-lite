@@ -24,7 +24,6 @@
                 throw err;
             }
             routerInstance = this;
-
             this.navigateTo(location.hash);
         } else
             throw { message: TAG + " 'routes' should be an array of routes." };
@@ -39,6 +38,7 @@
                 url = url.slice(2, url.length);
         }
         if(url !== this.currentPath) {
+            this.lastPath = this.currentPath || url;
             this.currentPath = url;
 
             var resultsObj = this.parseUrl(url);
@@ -50,7 +50,7 @@
                     if(typeof resultsObj.params === 'string' && resultsObj.params.length > 0) {
                         resultsObj.params = global.Utils.String.toDictionary(resultsObj.params, '&', '=');
                     }
-                    history.pushState(null, '', '#/' + url);
+                    history.replaceState(null, '', '#/' + url);
                     this.stateChange(resultsObj)
                 }
             } else
@@ -194,6 +194,10 @@
             listener(this.state.params[param]);
         }
         return subscription;
+    };
+
+    Router.prototype.isLandingPage = function() {
+        return this.lastPath === this.currentPath;
     };
 
     Router.prototype.params = function() {

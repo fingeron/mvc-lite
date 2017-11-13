@@ -21,11 +21,16 @@
             return classes;
         },
         modifier: function(compNode, value) {
+            var total = 0;
             for(var className in value) if(value.hasOwnProperty(className)) {
-                value[className] ?
-                    compNode.self.classList.add(className) :
+                if(value[className]) {
+                    compNode.self.classList.add(className);
+                    total++;
+                } else
                     compNode.self.classList.remove(className);
             }
+            if(total === 0 && compNode.self.classList.length === 0)
+                compNode.self.removeAttribute('class');
         }
     });
 

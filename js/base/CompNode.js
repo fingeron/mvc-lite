@@ -64,13 +64,17 @@
                         newCompNode = viewNode.generate(comp);
                         newCompNode.iteratorValue = iterator.array[i];
                         this.appendChild(newCompNode);
+                        if(newCompNode.isComponent())
+                            newCompNode.bootstrap();
                     }
                 }
 
-                while(i < this.children.length) {
+                // Clearing all irrelevant children
+                var fromChild = i;
+                for(i; i < this.children.length; i++) {
                     this.removeChild(this.children[i]);
-                    this.children.splice(i, 1);
                 }
+                this.children.splice(fromChild, i - fromChild);
 
                 // Reassigning values
                 $scope[iterator.varName] = tempVal;
@@ -122,7 +126,7 @@
 
                 if(insertBefore)
                     insertBefore.parentNode.insertBefore(newNode.self, insertBefore);
-                else
+                else if(this.self)
                     this.self.appendChild(newNode.self);
             } else
                 console.error("CompNode: replaceChild failed, 2nd parameter is not a child of this node.");
@@ -132,13 +136,13 @@
     };
 
     CompNode.prototype.removeChild = function(child, replace) {
-        if(Array.isArray(child.children)) {
-            for(var i = 0; i < child.children.length; i++)
-                child.removeChild(child.children[i]);
-        }
         if(child.comp instanceof global.Base.Component) {
             child.comp.onDestroy();
             delete child.comp;
+        } else if(Array.isArray(child.children)) {
+            for(var i = 0; i < child.children.length; i++)
+                child.removeChild(child.children[i]);
+            child.children.splice(0, child.children.length);
         }
 
         if(replace) {
@@ -146,8 +150,8 @@
             this.self.replaceChild(replace.self, child.self);
         } else {
             this.self.removeChild(child.self);
+            child.self = undefined;
         }
-        child.self = undefined;
     };
 
     CompNode.prototype.isComponent = function() {
