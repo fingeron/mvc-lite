@@ -66,6 +66,12 @@
                         this.appendChild(newCompNode);
                     }
                 }
+
+                while(i < this.children.length) {
+                    this.removeChild(this.children[i]);
+                    this.children.splice(i, 1);
+                }
+
                 // Reassigning values
                 $scope[iterator.varName] = tempVal;
                 viewNode.directives[tempDirectivePos] = tempDirective;
@@ -127,7 +133,7 @@
 
     CompNode.prototype.removeChild = function(child, replace) {
         if(Array.isArray(child.children)) {
-            for(var i = 0; i < child.children; i++)
+            for(var i = 0; i < child.children.length; i++)
                 child.removeChild(child.children[i]);
         }
         if(child.comp instanceof global.Base.Component) {
