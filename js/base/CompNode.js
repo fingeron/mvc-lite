@@ -148,7 +148,7 @@
         if(replace) {
             this.children.splice(this.children.indexOf(child), 1, replace);
             this.self.replaceChild(replace.self, child.self);
-        } else {
+        } else if(child.self) {
             this.self.removeChild(child.self);
             child.self = undefined;
         }

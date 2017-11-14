@@ -16,8 +16,8 @@
         if(typeof this.initFunc !== 'function') {
             throw { message: this.name + ": Couldn't initialize the model (initFunc err)" };
         } else {
-            this.initFunc(function(data) {
-                this.setData(data, true);
+            this.initFunc(function(data, merge) {
+                this.setData(data, !!merge);
             }.bind(this));
         }
     };
