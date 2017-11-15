@@ -9,6 +9,27 @@
 })(Function('return this')());
 (function(global) {
 
+    var ArrayFunctions = {
+        clean: function(arr) {
+            if(!Array.isArray(arr))
+                throw { message: "[Array:Clean] Cannot work with a non-array!" };
+
+            for(var i = 0; i < arr.length; i++) {
+                if(arr[i] === undefined) {
+                    arr.splice(i, 1);
+                    i--;
+                } else if(Array.isArray(arr[i]))
+                    this.clean(arr[i]);
+            }
+        }
+    };
+
+    global.Utils = global.Utils || {};
+    global.Utils.Array = ArrayFunctions;
+
+})(Function('return this')());
+(function(global) {
+
     var Http = {
         get: function(url, data, callback) {
             var xhr = new XMLHttpRequest();
@@ -219,9 +240,11 @@
                         updated = true;
                         break;
                     }
-                } else if(getterValue && Array.isArray(getterValue.array)) {
-                    break;
                 }
+                else if(getterValue && Array.isArray(getterValue.array))
+                    break;
+                else if(getterValue === false && typeof this.self === 'undefined')
+                    break;
             } else
                 skipped++;
         }
@@ -253,8 +276,18 @@
                         newCompNode = viewNode.generate(comp);
                         newCompNode.iteratorValue = iterator.array[i];
                         this.appendChild(newCompNode);
+                        if(newCompNode.isComponent())
+                            newCompNode.bootstrap();
                     }
                 }
+
+                // Clearing all irrelevant children
+                var fromChild = i;
+                for(i; i < this.children.length; i++) {
+                    this.removeChild(this.children[i]);
+                }
+                this.children.splice(fromChild, i - fromChild);
+
                 // Reassigning values
                 $scope[iterator.varName] = tempVal;
                 viewNode.directives[tempDirectivePos] = tempDirective;
@@ -291,8 +324,7 @@
         newNode.parent = child.parent;
 
         if(newNode.self && child.self) {
-            this.self.replaceChild(newNode.self, child.self);
-            this.children.splice(this.children.indexOf(child), 1, newNode);
+            this.removeChild(child, newNode)
         } else if(newNode.self && !child.self) {
             var childIndex = this.children.indexOf(child);
             if(childIndex >= 0) {
@@ -306,7 +338,7 @@
 
                 if(insertBefore)
                     insertBefore.parentNode.insertBefore(newNode.self, insertBefore);
-                else
+                else if(this.self)
                     this.self.appendChild(newNode.self);
             } else
                 console.error("CompNode: replaceChild failed, 2nd parameter is not a child of this node.");
@@ -315,10 +347,23 @@
         }
     };
 
-    CompNode.prototype.removeChild = function(child) {
-        this.self.removeChild(child.self);
-        child.self = undefined;
-        child.children.splice(0, child.children.length);
+    CompNode.prototype.removeChild = function(child, replace) {
+        if(child.comp instanceof global.Base.Component) {
+            child.comp.onDestroy();
+            delete child.comp;
+        } else if(Array.isArray(child.children)) {
+            for(var i = 0; i < child.children.length; i++)
+                child.removeChild(child.children[i]);
+            child.children.splice(0, child.children.length);
+        }
+
+        if(replace) {
+            this.children.splice(this.children.indexOf(child), 1, replace);
+            this.self.replaceChild(replace.self, child.self);
+        } else if(child.self) {
+            this.self.removeChild(child.self);
+            child.self = undefined;
+        }
     };
 
     CompNode.prototype.isComponent = function() {
@@ -359,12 +404,26 @@
             this.nodeTree.compare(this);
     };
 
-    Component.prototype.getInput = function(name) {
+    Component.prototype.getInput = function(name, defaultValue) {
         if(this.inputs && this.inputs.hasOwnProperty(name))
             return this.inputs[name];
         else {
-            throw { message: "Input " + name + " doesn't exist." };
+            return defaultValue;
         }
+    };
+
+    Component.prototype.onDestroy = function() {
+        if(Array.isArray(this.children))
+            while(this.children.length > 0)
+                this.children[0].onDestroy();
+
+        if(Array.isArray(this.subscriptions))
+            this.subscriptions.forEach(function(subscription) {
+                subscription.unsubscribe();
+            });
+
+        if(this.parent instanceof Component)
+            this.parent.children.splice(this.parent.children.indexOf(this), 1);
     };
 
     global.Base = global.Base || {};
@@ -396,8 +455,15 @@
             comp.inputs = inputs;
 
         // Provide the $scope with a function to retrieve inputs
-        $scope.getInput = function(name) {
-            $scope[name] = this.getInput(name);
+        $scope.getInput = function(name, defaultValue) {
+            $scope[name] = this.getInput(name, defaultValue);
+        }.bind(comp);
+
+        // Provide the $scope with option to hold component subscriptions
+        $scope.addSubscription = function() {
+            this.subscriptions = this.subscriptions || [];
+            for(var i = 0; i < arguments.length; i++)
+                this.subscriptions.push(arguments[i]);
         }.bind(comp);
 
         // Running the constructor
@@ -471,20 +537,28 @@
     };
 
     Model.prototype.init = function() {
+        this.data = [];
+
         if(typeof this.initFunc !== 'function') {
             throw { message: this.name + ": Couldn't initialize the model (initFunc err)" };
         } else {
-            this.initFunc(function(data) {
-                this.setData(data);
+            this.initFunc(function(data, merge) {
+                this.setData(data, !!merge);
             }.bind(this));
         }
     };
 
-    Model.prototype.setData = function(data, /*optional:*/ eventName) {
-        this.data = data;
+    Model.prototype.setData = function(data, merge, eventName) {
+        merge = !!merge;
+        if(!merge || !this.data)
+            this.data = data;
+        else {
+            for(var i = 0; i < data.length; i++)
+                this.data.push(data[i]);
+        }
 
         // If eventName isn't specified default to 'setData'.
-        this.emit(eventName || 'setData', data);
+        this.emit(eventName || 'setData', this.data);
     };
 
     Model.prototype.emit = function() {
@@ -510,9 +584,10 @@
         this.events[event].push(listener);
 
         return {
-            unsubscribe: function(listener) {
-                this.events.splice(this.events.indexOf(listener), 1);
-            }.bind(this, listener)
+            unsubscribe: function(event, listener) {
+                var index = this.events[event].indexOf(listener);
+                this.events[event].splice(index, 1);
+            }.bind(this, event, listener)
         };
     };
 
@@ -650,7 +725,7 @@
                 childNode = buildNodeObject(DOMNode.childNodes[n]);
                 childNode.parent = viewNode;
                 viewNode.children.push(childNode);
-            }
+            } 
             return viewNode;
         }
     };
@@ -740,14 +815,13 @@
                 // Removing the directive temporarily
                 this.directives[i] = undefined;
 
-                var childCount = 0;
                 for(i = 0; i < arr.length; i++) {
                     $scope[compNode.iterator.varName] = arr[i];
                     childNode = this.generate(comp);
                     childNode.iteratorValue = arr[i];
-                    if(childNode.self) childCount++;
                     compNode.appendChild(childNode);
-                    if(childNode.isComponent()) childNode.bootstrap(comp);
+                    if(childNode.isComponent())
+                        childNode.bootstrap(comp);
                 }
 
                 // Re-assigning values.
@@ -831,8 +905,8 @@
             } catch(err) {
                 throw err;
             }
+            this.navigations = 0;
             routerInstance = this;
-
             this.navigateTo(location.hash);
         } else
             throw { message: TAG + " 'routes' should be an array of routes." };
@@ -847,6 +921,8 @@
                 url = url.slice(2, url.length);
         }
         if(url !== this.currentPath) {
+            this.navigations++;
+            this.lastPath = this.currentPath || url;
             this.currentPath = url;
 
             var resultsObj = this.parseUrl(url);
@@ -858,7 +934,7 @@
                     if(typeof resultsObj.params === 'string' && resultsObj.params.length > 0) {
                         resultsObj.params = global.Utils.String.toDictionary(resultsObj.params, '&', '=');
                     }
-                    history.pushState(null, '', '#/' + url);
+                    history.replaceState(null, '', '#/' + url);
                     this.stateChange(resultsObj)
                 }
             } else
@@ -1004,6 +1080,11 @@
         return subscription;
     };
 
+    Router.prototype.isLandingPage = function() {
+        return this.lastPath === this.currentPath
+                && this.navigations === 1;
+    };
+
     Router.prototype.params = function() {
         return (this.state && typeof this.state.params === 'object') ?
                 this.state.params :
@@ -1119,11 +1200,16 @@
             return classes;
         },
         modifier: function(compNode, value) {
+            var total = 0;
             for(var className in value) if(value.hasOwnProperty(className)) {
-                value[className] ?
-                    compNode.self.classList.add(className) :
+                if(value[className]) {
+                    compNode.self.classList.add(className);
+                    total++;
+                } else
                     compNode.self.classList.remove(className);
             }
+            if(total === 0 && compNode.self.classList.length === 0)
+                compNode.self.removeAttribute('class');
         }
     });
 
@@ -1210,7 +1296,7 @@
                 compNode.self.addEventListener(event, function(callback, e) {
                     if(e && e.preventDefault) e.preventDefault();
                     try {
-                        callback(e.target);
+                        callback(e.currentTarget);
                     } catch(err) {
                         console.error('[Injectable]', err);
                     }
@@ -1275,13 +1361,13 @@
             }
             return result;
         },
-        compare: function(oldVal, newVal) {
-            return oldVal.array === newVal.array;
-        },
         modifier: function(compNode, value) {
             compNode.self = document.createElement('iterator');
             compNode.multipleNodes = true;
             compNode.iterator = value;
+        },
+        compare: function(oldVal, newVal) {
+            return oldVal.array === newVal.array;
         }
     });
 

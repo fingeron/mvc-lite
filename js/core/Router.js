@@ -23,6 +23,7 @@
             } catch(err) {
                 throw err;
             }
+            this.navigations = 0;
             routerInstance = this;
             this.navigateTo(location.hash);
         } else
@@ -38,6 +39,7 @@
                 url = url.slice(2, url.length);
         }
         if(url !== this.currentPath) {
+            this.navigations++;
             this.lastPath = this.currentPath || url;
             this.currentPath = url;
 
@@ -197,7 +199,8 @@
     };
 
     Router.prototype.isLandingPage = function() {
-        return this.lastPath === this.currentPath;
+        return this.lastPath === this.currentPath
+                && this.navigations === 1;
     };
 
     Router.prototype.params = function() {

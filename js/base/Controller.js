@@ -28,9 +28,10 @@
         }.bind(comp);
 
         // Provide the $scope with option to hold component subscriptions
-        $scope.addSubscription = function(subscription) {
+        $scope.addSubscription = function() {
             this.subscriptions = this.subscriptions || [];
-            this.subscriptions.push(subscription);
+            for(var i = 0; i < arguments.length; i++)
+                this.subscriptions.push(arguments[i]);
         }.bind(comp);
 
         // Running the constructor
