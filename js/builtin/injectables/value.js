@@ -6,6 +6,8 @@
 
         // Functions
         modifier: function(compNode, value) {
+            if(compNode.self instanceof HTMLInputElement)
+                compNode.self.value = value;
             compNode.self.innerHTML = value;
         }
     });

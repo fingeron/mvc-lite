@@ -33,7 +33,7 @@
             try {
                 var result = global.Core.Bootstrap(compEl);
             } catch(err) {
-                console.error(TAG, err.message);
+                console.error(TAG, err.message || err);
             }
             return result;
         } else
