@@ -10,10 +10,7 @@
         if(Array.isArray(routes)) {
             // Initializing onhashchange:
             window.onhashchange = function() {
-                if(!this.navigating) {
-                    this.navigateTo(location.hash);
-                }
-                this.navigating = false;
+                this.navigateTo(location.hash, true);
             }.bind(this);
             // Initializing Router
             try {
@@ -30,7 +27,7 @@
             throw { message: TAG + " 'routes' should be an array of routes." };
     };
 
-    Router.prototype.navigateTo = function(url) {
+    Router.prototype.navigateTo = function(url, fromWindow) {
         // First validate url
         if(url[0] === '#') {
             if(url[1] !== '/') {
@@ -39,6 +36,10 @@
                 url = url.slice(2, url.length);
         }
         if(url !== this.currentPath) {
+            // An identifier for Router state.
+            this.navigating = true;
+
+            // Updating Router variables
             this.navigations++;
             this.lastPath = this.currentPath || url;
             this.currentPath = url;
@@ -52,11 +53,16 @@
                     if(typeof resultsObj.params === 'string' && resultsObj.params.length > 0) {
                         resultsObj.params = global.Utils.String.toDictionary(resultsObj.params, '&', '=');
                     }
-                    history.replaceState(null, '', '#/' + url);
+                    if(fromWindow)
+                        history.replaceState(null, '', '#/' + url);
+                    else
+                        history.pushState(null, '', '#/' + url);
                     this.stateChange(resultsObj)
                 }
             } else
                 console.error("UNKNOWN ROUTE " + url);
+
+            this.navigating = false;
         }
     };
 
@@ -172,15 +178,22 @@
                 }
             }
         }
+        // Only set the router data if the system is not already in routing process
+        // if(changes > 0 && !this.navigating) {
         if(changes > 0) {
-            this.navigating = true;
             var currUrl = location.hash;
             currUrl = currUrl.split('?')[0] + '?';
             for(var param in params) if(params.hasOwnProperty(param)) {
                 currUrl += param + '=' + params[param] + '&'
             }
-            location.hash = currUrl.substr(0, currUrl.length - 1);
-            this.currentPath = location.hash.substr(2, location.hash.length);
+            currUrl = currUrl.substr(2, currUrl.length - 3);
+
+            if(!this.navigating)
+                history.pushState(null, '', '#/' + currUrl);
+            else
+                history.replaceState(null, '', '#/' + currUrl);
+
+            this.currentPath = currUrl;
         }
         if(this.state) this.state.params = params;
     };
