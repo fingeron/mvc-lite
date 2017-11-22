@@ -12,7 +12,11 @@
             if(typeof data.params === 'object') {
                 var urlParams = '?';
                 for(var param in data.params) if(data.params.hasOwnProperty(param)) {
-                    urlParams += param + '=' + data.params[param] + '&';
+                    if(Array.isArray(data.params[param])) {
+                        for(var i = 0; i < data.params[param].length; i++)
+                            urlParams += param + '=' + data.params[param][i] + '&';
+                    } else
+                        urlParams += param + '=' + data.params[param] + '&';
                 }
                 url += urlParams;
             }
@@ -39,6 +43,7 @@
 
             if (typeof data.body === 'object') {
                 data = data.body;
+                xhr.setRequestHeader('Content-Type', 'application/json');
             }
 
             xhr.onreadystatechange = function() {
