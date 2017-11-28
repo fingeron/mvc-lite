@@ -1,6 +1,6 @@
 {
   "name": "mvc-lite",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Lite MVC Library using pure EcmaScript5",
   "main": "main.js",
   "scripts": {
