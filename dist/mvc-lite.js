@@ -795,7 +795,7 @@
                 this.controller = attrValue;
             } else {
                 // Checking for injectables and saving their pipes & statements.
-                var pipeSplit = attrValue.split('|'),
+                var pipeSplit = attrValue.split(' | '),
                     injectable = global.App.getInjectable(attrName),
                     pipes;
 
