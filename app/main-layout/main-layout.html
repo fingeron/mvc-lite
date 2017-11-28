@@ -1,4 +1,4 @@
 <div class="main-layout">
-    <h1 bind-value="title" class="title"></h1>
+    <h1 bind-value="title | split:'a'" class="title"></h1>
     <button bind-events="click: buttonClicked('about')">About</button>
 </div>

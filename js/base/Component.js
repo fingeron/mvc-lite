@@ -29,6 +29,18 @@
         }
     };
 
+    Component.prototype.evalWithScope = function(statement) {
+        var result;
+        try {
+            with(this.$scope) {
+                result = eval(statement);
+            }
+        } catch(err) {
+            console.log(err.message);
+        }
+        return result;
+    };
+
     Component.prototype.onDestroy = function() {
         if(Array.isArray(this.children))
             while(this.children.length > 0)

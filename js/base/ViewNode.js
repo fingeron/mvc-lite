@@ -8,22 +8,46 @@
     };
 
     ViewNode.prototype.parseNode = function() {
-        var attrArr = this.self.attributes;
+        var attrArr = this.self.attributes,
+            attrName, attrValue;
+
         if(attrArr && attrArr.length > 0) for(var a = 0; a < attrArr.length; a++) {
-            if(attrArr[a].name === 'controller') {
-                this.controller = attrArr[a].value;
+            attrName = attrArr[a].name;
+            attrValue = attrArr[a].value;
+
+            if(attrName === 'controller') {
+                this.controller = attrValue;
             } else {
-                // Checking for injectables and saving their statements.
-                var injectable = global.App.getInjectable(attrArr[a].name);
+                // Checking for injectables and saving their pipes & statements.
+                var pipeSplit = attrValue.split('|'),
+                    injectable = global.App.getInjectable(attrName),
+                    pipes;
+
                 if(injectable instanceof global.Base.Injectable) {
+                    attrValue = pipeSplit[0];
+                    pipeSplit.splice(0, 1);
+
+                    if(pipeSplit.length > 0) {
+                        pipes = [];
+                        for(var i = 0; i < pipeSplit.length; i++) {
+                            var pipeParts = pipeSplit[i].trim().split(/:(.+)/g);
+                            pipeParts = pipeParts.filter(function(p) { return p.length > 0 });
+                            pipes.push({
+                                name: pipeParts[0],
+                                dataStatement: pipeParts[1]
+                            });
+                        }
+                    }
+
                     if(!Array.isArray(this.directives))
                         this.directives = [];
                     this.directives.push({
                         injectable: injectable,
-                        statement: attrArr[a].value
+                        statement: attrValue,
+                        pipes: pipes
                     });
                     if(!injectable.keepAttribute) {
-                        this.self.removeAttribute(attrArr[a].name);
+                        this.self.removeAttribute(attrName);
                         // Removing attribute will lower 'attrArr.length' by 1.
                         a--;
                     }
@@ -45,6 +69,22 @@
 
                 // Get value from injectable getter
                 var value = directive.injectable.getter(directive.statement, comp);
+
+                if(Array.isArray(directive.pipes)) {
+                    var p, pipeObj, pipe;
+                    for(p = 0; p < directive.pipes.length; p++) {
+                        pipeObj = directive.pipes[p];
+                        pipe = global.App.getPipe(pipeObj.name);
+                        if(pipe instanceof global.Base.Pipe) {
+                            var data;
+                            if(pipeObj.dataStatement)
+                                data = comp.evalWithScope(pipeObj.dataStatement);
+
+                            // Finally transform the value and apply it
+                            value = pipe.transform(value, data);
+                        }
+                    }
+                }
 
                 // Running modifier on created compNode with getter value
                 directive.injectable.modifier(compNode, value);

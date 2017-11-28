@@ -42,7 +42,11 @@
             if(typeof data.params === 'object') {
                 var urlParams = '?';
                 for(var param in data.params) if(data.params.hasOwnProperty(param)) {
-                    urlParams += param + '=' + data.params[param] + '&';
+                    if(Array.isArray(data.params[param])) {
+                        for(var i = 0; i < data.params[param].length; i++)
+                            urlParams += param + '=' + data.params[param][i] + '&';
+                    } else
+                        urlParams += param + '=' + data.params[param] + '&';
                 }
                 url += urlParams;
             }
@@ -69,6 +73,7 @@
 
             if (typeof data.body === 'object') {
                 data = data.body;
+                xhr.setRequestHeader('Content-Type', 'application/json');
             }
 
             xhr.onreadystatechange = function() {
@@ -412,6 +417,18 @@
         }
     };
 
+    Component.prototype.evalWithScope = function(statement) {
+        var result;
+        try {
+            with(this.$scope) {
+                result = eval(statement);
+            }
+        } catch(err) {
+            console.log(err.message);
+        }
+        return result;
+    };
+
     Component.prototype.onDestroy = function() {
         if(Array.isArray(this.children))
             while(this.children.length > 0)
@@ -597,6 +614,21 @@
 })(Function('return this')());
 (function(global) {
 
+    var Pipe = function(name, func) {
+        this.name = name;
+        this.func = func;
+    };
+
+    Pipe.prototype.transform = function(value, data) {
+        return this.func(value, data);
+    };
+
+    global.Base = global.Base || {};
+    global.Base.Pipe = Pipe;
+
+})(Function('return this')());
+(function(global) {
+
     var TAG = "[Route]";
 
     var Route = function(options) {
@@ -725,7 +757,7 @@
                 childNode = buildNodeObject(DOMNode.childNodes[n]);
                 childNode.parent = viewNode;
                 viewNode.children.push(childNode);
-            } 
+            }
             return viewNode;
         }
     };
@@ -752,22 +784,46 @@
     };
 
     ViewNode.prototype.parseNode = function() {
-        var attrArr = this.self.attributes;
+        var attrArr = this.self.attributes,
+            attrName, attrValue;
+
         if(attrArr && attrArr.length > 0) for(var a = 0; a < attrArr.length; a++) {
-            if(attrArr[a].name === 'controller') {
-                this.controller = attrArr[a].value;
+            attrName = attrArr[a].name;
+            attrValue = attrArr[a].value;
+
+            if(attrName === 'controller') {
+                this.controller = attrValue;
             } else {
-                // Checking for injectables and saving their statements.
-                var injectable = global.App.getInjectable(attrArr[a].name);
+                // Checking for injectables and saving their pipes & statements.
+                var pipeSplit = attrValue.split('|'),
+                    injectable = global.App.getInjectable(attrName),
+                    pipes;
+
                 if(injectable instanceof global.Base.Injectable) {
+                    attrValue = pipeSplit[0];
+                    pipeSplit.splice(0, 1);
+
+                    if(pipeSplit.length > 0) {
+                        pipes = [];
+                        for(var i = 0; i < pipeSplit.length; i++) {
+                            var pipeParts = pipeSplit[i].trim().split(/:(.+)/g);
+                            pipeParts = pipeParts.filter(function(p) { return p.length > 0 });
+                            pipes.push({
+                                name: pipeParts[0],
+                                dataStatement: pipeParts[1]
+                            });
+                        }
+                    }
+
                     if(!Array.isArray(this.directives))
                         this.directives = [];
                     this.directives.push({
                         injectable: injectable,
-                        statement: attrArr[a].value
+                        statement: attrValue,
+                        pipes: pipes
                     });
                     if(!injectable.keepAttribute) {
-                        this.self.removeAttribute(attrArr[a].name);
+                        this.self.removeAttribute(attrName);
                         // Removing attribute will lower 'attrArr.length' by 1.
                         a--;
                     }
@@ -789,6 +845,22 @@
 
                 // Get value from injectable getter
                 var value = directive.injectable.getter(directive.statement, comp);
+
+                if(Array.isArray(directive.pipes)) {
+                    var p, pipeObj, pipe;
+                    for(p = 0; p < directive.pipes.length; p++) {
+                        pipeObj = directive.pipes[p];
+                        pipe = global.App.getPipe(pipeObj.name);
+                        if(pipe instanceof global.Base.Pipe) {
+                            var data;
+                            if(pipeObj.dataStatement)
+                                data = comp.evalWithScope(pipeObj.dataStatement);
+
+                            // Finally transform the value and apply it
+                            value = pipe.transform(value, data);
+                        }
+                    }
+                }
 
                 // Running modifier on created compNode with getter value
                 directive.injectable.modifier(compNode, value);
@@ -892,10 +964,7 @@
         if(Array.isArray(routes)) {
             // Initializing onhashchange:
             window.onhashchange = function() {
-                if(!this.navigating) {
-                    this.navigateTo(location.hash);
-                }
-                this.navigating = false;
+                this.navigateTo(location.hash, true);
             }.bind(this);
             // Initializing Router
             try {
@@ -912,7 +981,7 @@
             throw { message: TAG + " 'routes' should be an array of routes." };
     };
 
-    Router.prototype.navigateTo = function(url) {
+    Router.prototype.navigateTo = function(url, fromWindow) {
         // First validate url
         if(url[0] === '#') {
             if(url[1] !== '/') {
@@ -921,6 +990,10 @@
                 url = url.slice(2, url.length);
         }
         if(url !== this.currentPath) {
+            // An identifier for Router state.
+            this.navigating = true;
+
+            // Updating Router variables
             this.navigations++;
             this.lastPath = this.currentPath || url;
             this.currentPath = url;
@@ -934,11 +1007,16 @@
                     if(typeof resultsObj.params === 'string' && resultsObj.params.length > 0) {
                         resultsObj.params = global.Utils.String.toDictionary(resultsObj.params, '&', '=');
                     }
-                    history.replaceState(null, '', '#/' + url);
+                    if(fromWindow)
+                        history.replaceState(null, '', '#/' + url);
+                    else
+                        history.pushState(null, '', '#/' + url);
                     this.stateChange(resultsObj)
                 }
             } else
                 console.error("UNKNOWN ROUTE " + url);
+
+            this.navigating = false;
         }
     };
 
@@ -1054,15 +1132,22 @@
                 }
             }
         }
+        // Only set the router data if the system is not already in routing process
+        // if(changes > 0 && !this.navigating) {
         if(changes > 0) {
-            this.navigating = true;
             var currUrl = location.hash;
             currUrl = currUrl.split('?')[0] + '?';
             for(var param in params) if(params.hasOwnProperty(param)) {
                 currUrl += param + '=' + params[param] + '&'
             }
-            location.hash = currUrl.substr(0, currUrl.length - 1);
-            this.currentPath = location.hash.substr(2, location.hash.length);
+            currUrl = currUrl.substr(2, currUrl.length - 3);
+
+            if(!this.navigating)
+                history.pushState(null, '', '#/' + currUrl);
+            else
+                history.replaceState(null, '', '#/' + currUrl);
+
+            this.currentPath = currUrl;
         }
         if(this.state) this.state.params = params;
     };
@@ -1098,8 +1183,9 @@
 (function(global) {
 
     var Controllers = {},
+        Models      = {},
         Injectables = {},
-        Models     = {},
+        Pipes       = {},
         routerInstance;
 
     global.App = {
@@ -1107,18 +1193,22 @@
         getController: function(name) {
             return Controllers[name];
         },
+        getModel: function(name) {
+            return Models[name];
+        },
         getInjectable: function(name) {
             return Injectables[name];
         },
-        getModel: function(name) {
-            return Models[name];
+        getPipe: function(name) {
+            return Pipes[name];
         },
 
         // Generators
         Bootstrap: bootstrapApp,
         Controller: generateController,
-        Injectable: generateInjectable,
         Model: createModel,
+        Injectable: generateInjectable,
+        Pipe: generatePipe,
         Router: getRouter
     };
 
@@ -1130,7 +1220,7 @@
             try {
                 var result = global.Core.Bootstrap(compEl);
             } catch(err) {
-                console.error(TAG, err.message);
+                console.error(TAG, err.message || err);
             }
             return result;
         } else
@@ -1164,6 +1254,15 @@
         var TAG = "[Model]";
         try {
             Models[name] = new global.Base.Model(name, initFunc);
+        } catch(err) {
+            console.error(TAG, err.message);
+        }
+    }
+
+    function generatePipe(name, func) {
+        var TAG = "[Pipe]";
+        try {
+            Pipes[name] = new global.Base.Pipe(name, func);
         } catch(err) {
             console.error(TAG, err.message);
         }
@@ -1400,6 +1499,8 @@
 
         // Functions
         modifier: function(compNode, value) {
+            if(compNode.self instanceof HTMLInputElement)
+                compNode.self.value = value;
             compNode.self.innerHTML = value;
         }
     });

@@ -1,8 +1,9 @@
 (function(global) {
 
     var Controllers = {},
+        Models      = {},
         Injectables = {},
-        Models     = {},
+        Pipes       = {},
         routerInstance;
 
     global.App = {
@@ -10,18 +11,22 @@
         getController: function(name) {
             return Controllers[name];
         },
+        getModel: function(name) {
+            return Models[name];
+        },
         getInjectable: function(name) {
             return Injectables[name];
         },
-        getModel: function(name) {
-            return Models[name];
+        getPipe: function(name) {
+            return Pipes[name];
         },
 
         // Generators
         Bootstrap: bootstrapApp,
         Controller: generateController,
-        Injectable: generateInjectable,
         Model: createModel,
+        Injectable: generateInjectable,
+        Pipe: generatePipe,
         Router: getRouter
     };
 
@@ -67,6 +72,15 @@
         var TAG = "[Model]";
         try {
             Models[name] = new global.Base.Model(name, initFunc);
+        } catch(err) {
+            console.error(TAG, err.message);
+        }
+    }
+
+    function generatePipe(name, func) {
+        var TAG = "[Pipe]";
+        try {
+            Pipes[name] = new global.Base.Pipe(name, func);
         } catch(err) {
             console.error(TAG, err.message);
         }
