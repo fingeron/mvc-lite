@@ -1,5 +1,7 @@
 (function(global) {
 
+    var permaParams = {};
+
     var Http = {
         get: function(url, data, callback) {
             var xhr = new XMLHttpRequest();
@@ -9,17 +11,8 @@
                     xhr.setRequestHeader(header, data.headers[header]);
                 }
             }
-            if(typeof data.params === 'object') {
-                var urlParams = '?';
-                for(var param in data.params) if(data.params.hasOwnProperty(param)) {
-                    if(Array.isArray(data.params[param])) {
-                        for(var i = 0; i < data.params[param].length; i++)
-                            urlParams += param + '=' + data.params[param][i] + '&';
-                    } else
-                        urlParams += param + '=' + data.params[param] + '&';
-                }
-                url += urlParams;
-            }
+
+            url += getParamString(permaParams, data.params);
 
             xhr.open('GET', url, true);
 
@@ -32,6 +25,9 @@
         },
         post: function(url, data, callback) {
             var xhr = new XMLHttpRequest();
+
+            url += getParamString(permaParams, data.params);
+
             xhr.open('POST', url, true);
 
             // analyse request data
@@ -40,8 +36,7 @@
                     xhr.setRequestHeader(header, data.headers[header]);
                 }
             }
-
-            if (typeof data.body === 'object') {
+            if(typeof data.body === 'object') {
                 data = data.body;
                 xhr.setRequestHeader('Content-Type', 'application/json');
             }
@@ -52,8 +47,40 @@
                 }
             };
             xhr.send(JSON.stringify(data));
+        },
+        updatePermaParam: function(key, value) {
+            if(typeof value === 'undefined')
+                delete permaParams[key];
+            else
+                permaParams[key] = value;
         }
     };
+
+    function getParamString() {
+        var params = {};
+        for(var i = 0; i < arguments.length; i++) {
+            var paramsObj = arguments[i];
+            for(var p in paramsObj) if(paramsObj.hasOwnProperty(p))
+                params[p] = paramsObj[p];
+        }
+
+        var paramString;
+        for(var param in params) if(params.hasOwnProperty(param)) {
+            if(!paramString) paramString = '?';
+            switch(typeof params[param]) {
+                case 'object':
+                    if(Array.isArray(params[param]))
+                        for(var a = 0; a < params[param].length; a++)
+                            paramString += (param + '=' + params[param][a] + '&');
+                    break;
+                default:
+                    paramString += (param + '=' + params[param] + '&');
+                    break;
+            }
+        }
+
+        return (paramString && paramString.substr(0, paramString.length-1) || '');
+    }
 
     global.Utils = global.Utils || {};
     global.Utils.Http = Http;
