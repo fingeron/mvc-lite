@@ -4,14 +4,10 @@
 
     var View = function(name, relPath, template) {
         this.name = name;
+        this.relPath = relPath;
 
-        if(!template)
-            this.loadTemplate(relPath);
-        else {
+        if(template)
             this.templateSrc = template;
-        }
-
-        this.buildNodeTree();
     };
 
     View.prototype.loadTemplate = function(relPath) {
@@ -54,6 +50,11 @@
     };
 
     View.prototype.generate = function(comp) {
+        if(!this.nodeTree) {
+            this.loadTemplate(this.relPath);
+            this.buildNodeTree();
+        }
+
         var componentTree = new global.Base.CompNode(this.nodeTree);
         for(var c = 0; c < this.nodeTree.children.length; c++) {
             componentTree.appendChild(this.nodeTree.children[c].generate(comp));

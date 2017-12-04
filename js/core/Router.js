@@ -21,6 +21,7 @@
                 throw err;
             }
             this.navigations = 0;
+            this.onStateChange = new global.Utils.Observable();
             routerInstance = this;
             this.navigateTo(location.hash);
         } else
@@ -63,6 +64,7 @@
                 console.error("UNKNOWN ROUTE " + url);
 
             this.navigating = false;
+            this.onStateChange.next(this.currentPath);
         }
     };
 

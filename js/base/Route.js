@@ -52,7 +52,9 @@
                         break;
                     }
                 }
-                return wasFound
+                return {
+                    controllers: wasFound
+                };
             } else if(Array.isArray(this.children)) {
                 var child = this.children.filter(function(c) {
                     return c.path.length === 1 && c.path[0] === '';

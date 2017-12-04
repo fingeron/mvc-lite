@@ -36,7 +36,7 @@
                 result = eval(statement);
             }
         } catch(err) {
-            console.log(err.message);
+            console.error(err.message);
         }
         return result;
     };
