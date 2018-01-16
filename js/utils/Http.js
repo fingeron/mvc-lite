@@ -1,6 +1,6 @@
 (function(global) {
 
-    var permaParams = {};
+    var permaParams = {}, paramSubscriptions = {};
 
     var Http = {
         get: function(url, data, callback) {
@@ -18,7 +18,7 @@
 
             xhr.onreadystatechange = function() {
                 if(xhr.status === 200 && xhr.readyState === 4) {
-                    callback(JSON.parse(xhr.responseText));
+                    handleResponse(JSON.parse(xhr.responseText), callback);
                 }
             };
             xhr.send();
@@ -43,18 +43,34 @@
 
             xhr.onreadystatechange = function() {
                 if(xhr.status === 200 && xhr.readyState === 4) {
-                    callback(JSON.parse(xhr.responseText));
+                    handleResponse(JSON.parse(xhr.responseText), callback);
                 }
             };
             xhr.send(JSON.stringify(data));
         },
+
         updatePermaParam: function(key, value) {
             if(typeof value === 'undefined')
                 delete permaParams[key];
             else
                 permaParams[key] = value;
+        },
+
+        subscribeToResponseParam: function(param, listener) {
+            if(!(paramSubscriptions[param] instanceof global.Utils.Observable))
+                paramSubscriptions[param] = new global.Utils.Observable();
+
+            return paramSubscriptions[param].subscribe(listener);
         }
     };
+
+    function handleResponse(response, callback) {
+        for(var param in paramSubscriptions)
+            if(paramSubscriptions.hasOwnProperty(param))
+                if(response.hasOwnProperty(param))
+                    paramSubscriptions[param].next(response[param]);
+        callback(response);
+    }
 
     function getParamString() {
         var params = {};

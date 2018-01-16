@@ -16,7 +16,25 @@
                 injectable, getterValue, skipped = 0;
             for(var i = 0; i < directives.length; i++) if(directives[i]) {
                 injectable = directives[i].injectable;
+
                 getterValue = injectable.getter(directives[i].statement, comp);
+
+                // Checking for pipes and analyzing them
+                if(Array.isArray(directives[i].pipes)) {
+                    var p, pipeObj, pipe;
+                    for(p = 0; p < directives[i].pipes.length; p++) {
+                        pipeObj = directives[i].pipes[p];
+                        pipe = global.App.getPipe(pipeObj.name);
+                        if(pipe instanceof global.Base.Pipe) {
+                            var data;
+                            if(pipeObj.dataStatement)
+                                data = comp.evalWithScope(pipeObj.dataStatement);
+
+                            // Finally transform the value and apply it
+                            getterValue = pipe.transform(getterValue, data);
+                        }
+                    }
+                }
 
                 // If injectable getter with current scope result is
                 // different from current one, update the CompNode.

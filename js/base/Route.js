@@ -56,17 +56,11 @@
                     controllers: wasFound
                 };
             } else if(Array.isArray(this.children)) {
-                var child = this.children.filter(function(c) {
+                var child = this.children.find(function(c) {
                     return c.path.length === 1 && c.path[0] === '';
                 });
-                while(Array.isArray(child) && child.length > 0) {
-                    child = child[0];
-                    matchesArr.push(child.controller);
-                    if(Array.isArray(child.children))
-                        child = child.children.filter(function(c) {
-                            return c.path.length === 0;
-                        });
-                }
+                if(child)
+                    return child.checkUrl([''], matchesArr);
             }
             return {
                 controllers: matchesArr

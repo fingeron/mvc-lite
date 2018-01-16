@@ -70,6 +70,7 @@
                 // Get value from injectable getter
                 var value = directive.injectable.getter(directive.statement, comp);
 
+                // Checking for pipes and analyzing them
                 if(Array.isArray(directive.pipes)) {
                     var p, pipeObj, pipe;
                     for(p = 0; p < directive.pipes.length; p++) {

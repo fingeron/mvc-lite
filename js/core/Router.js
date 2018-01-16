@@ -12,9 +12,12 @@
             window.onhashchange = function() {
                 this.navigateTo(location.hash, true);
             }.bind(this);
+            var defaultRoute;
             // Initializing Router
             try {
                 this.routes = routes.map(function(r) {
+                    if(r.setAsDefault)
+                        defaultRoute = r;
                     return new global.Base.Route(r);
                 });
             } catch(err) {
@@ -23,6 +26,10 @@
             this.navigations = 0;
             this.onStateChange = new global.Utils.Observable();
             routerInstance = this;
+
+            if(defaultRoute)
+                this.defaultRoute = defaultRoute;
+
             this.navigateTo(location.hash);
         } else
             throw { message: TAG + " 'routes' should be an array of routes." };
@@ -30,12 +37,16 @@
 
     Router.prototype.navigateTo = function(url, fromWindow) {
         // First validate url
-        if(url[0] === '#') {
-            if(url[1] !== '/') {
-                url = url.slice(1, url.length);
-            } else
-                url = url.slice(2, url.length);
-        }
+        if(url[0] === '#')
+            url = url.slice((url[1] !== '/' ? 1 : 2), url.length);
+
+        // TODO: support navigation to EL. Currently supporting the URL state
+        var pageEl;
+        url = url.split('#');
+        if(url.length > 1)
+            pageEl = url[1];
+        url = url[0];
+
         if(url !== this.currentPath) {
             // An identifier for Router state.
             this.navigating = true;
@@ -55,13 +66,15 @@
                         resultsObj.params = global.Utils.String.toDictionary(resultsObj.params, '&', '=');
                     }
                     if(fromWindow)
-                        history.replaceState(null, '', '#/' + url);
+                        history.replaceState(null, '', '#/' + url + (pageEl ? '#' + pageEl : ''));
                     else
-                        history.pushState(null, '', '#/' + url);
+                        history.pushState(null, '', '#/' + url + (pageEl ? '#' + pageEl : ''));
                     this.stateChange(resultsObj)
                 }
+            } else if(this.defaultRoute) {
+                this.navigateTo(this.defaultRoute.path);
             } else
-                console.error("UNKNOWN ROUTE " + url);
+                console.error("UNKNOWN ROUTE " + url + ". To avoid this error please 'setAsDefault' your main path.");
 
             this.navigating = false;
             this.onStateChange.next(this.currentPath);
@@ -151,7 +164,10 @@
                     if(!Array.isArray(this.state.compNodes)) this.state.compNodes = [];
 
                     // Assigning next controller on the stack to nextController
-                    this.state.nextController = this.state.controllers[i+1];
+                    if(i+1 >= this.state.controllers.length)
+                        this.state.nextController = this.state.controllers[0];
+                    else
+                        this.state.nextController = this.state.controllers[i+1];
 
                     // Placing the compNode in it's correct place
                     this.state.compNodes[i] = compNode;

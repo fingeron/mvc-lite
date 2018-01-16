@@ -2,7 +2,9 @@
 
     global.App.Injectable('bind-events', {
         getter: function(statement, comp) {
-            var events = global.Utils.String.toDictionary(statement),
+            var entryRegExp = new RegExp('([a-z]+\\: ?.+?\\(.*?\\)), ?');
+
+            var events = global.Utils.String.toDictionary(statement, false, false, entryRegExp),
                 matches, funcName, variables;
 
             for(var event in events) if(events.hasOwnProperty(event)) {
@@ -25,18 +27,21 @@
                     }
                 }
 
-                events[event] = function(funcName, variables, el) {
-                    var func;
-                    try {
-                        with(comp.$scope) {
-                            func = eval(funcName);
+                events[event] = {
+                    variables: variables,
+                    func: function(funcName, variables, el) {
+                        var func;
+                        try {
+                            with(comp.$scope) {
+                                func = eval(funcName);
+                            }
+                        } catch(err) {
+                            throw (this.name + ": " + err.message)
                         }
-                    } catch(err) {
-                        throw (this.name + ": " + err.message)
-                    }
-                    if(typeof func === 'function')
-                        func.apply(el, variables);
-                }.bind(this, funcName, variables);
+                        if(typeof func === 'function')
+                            func.apply(el, variables);
+                    }.bind(this, funcName, variables)
+                };
             }
             return events;
         },
@@ -49,10 +54,23 @@
                     } catch(err) {
                         console.error('[Injectable]', err);
                     }
-                }.bind(this, value[event]));
+                }.bind(this, value[event].func));
             }
         },
         compare: function(oldVal, newVal) {
+            for(var event in oldVal) {
+                if(!newVal[event])
+                    return false;
+
+                var oldVars = oldVal[event].variables, newVars = newVal[event].variables;
+                if(oldVars.length !== newVars.length)
+                    return false;
+
+                for(var i = 0; i < oldVars.length; i++) {
+                    if(oldVars[i] !== newVars[i])
+                        return false;
+                }
+            }
             return true;
         }
     });

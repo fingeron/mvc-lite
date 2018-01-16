@@ -30,8 +30,11 @@
         Router: getRouter
     };
 
-    function bootstrapApp(componentName) {
+    function bootstrapApp(componentName, options) {
         var TAG = "[Bootstrap]";
+
+        if(typeof options === 'object')
+            global.Utils.Object.updateObject(global.Config, options);
 
         var compEl = document.querySelector('*[controller="' + componentName + '"]');
         if(compEl && compEl.nodeType === 1) {
