@@ -46,6 +46,10 @@
                         statement: attrValue,
                         pipes: pipes
                     });
+
+                    // Clearing the `pipes` variable
+                    pipes = undefined;
+
                     if(!injectable.keepAttribute) {
                         this.self.removeAttribute(attrName);
                         // Removing attribute will lower 'attrArr.length' by 1.
@@ -109,11 +113,18 @@
                     tempDirectivePos = i,
                     childNode;
 
+                if(typeof compNode.iterator.indexVarName === 'string') {
+                    var indexVarName = compNode.iterator.indexVarName,
+                        tempIndexVarValue = $scope[indexVarName];
+                }
+
                 // Removing the directive temporarily
                 this.directives[i] = undefined;
 
                 for(i = 0; i < arr.length; i++) {
                     $scope[compNode.iterator.varName] = arr[i];
+                    // If present, assigning index to indexVarName.
+                    if(indexVarName) $scope[indexVarName] = i;
                     childNode = this.generate(comp);
                     childNode.iteratorValue = arr[i];
                     compNode.appendChild(childNode);
@@ -124,6 +135,8 @@
                 // Re-assigning values.
                 $scope[compNode.iterator.varName] = tempVal;
                 this.directives[tempDirectivePos] = tempDirective;
+                if(tempIndexVarValue)
+                    $scope[indexVarName] = tempIndexVarValue;
             } else
                 generateChildren(this, compNode);
         }

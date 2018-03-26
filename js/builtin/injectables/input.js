@@ -3,14 +3,8 @@
     global.App.Injectable('input', {
         getter: function(statement, comp) {
             var inputs = global.Utils.String.toDictionary(statement);
-            try {
-                for(var input in inputs) if(inputs.hasOwnProperty(input)) {
-                    with(comp.$scope) {
-                        inputs[input] = eval(inputs[input]);
-                    }
-                }
-            } catch(err) {
-                throw { message: this.name + ": " + err.message };
+            for(var input in inputs) if(inputs.hasOwnProperty(input)) {
+                inputs[input] = comp.evalWithScope(inputs[input]);
             }
             return inputs;
         },

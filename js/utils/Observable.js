@@ -18,16 +18,11 @@
         },
 
         unsubscribe: function(listener) {
-            for(var i = this.listeners.length - 1; i >= 0; i--) {
-                if(this.listeners[i] === listener)
-                    this.listeners.splice(i, 1);
-            }
+            this.listeners.splice(this.listeners.indexOf(listener), 1);
         },
 
         next: function(value) {
-            this.listeners.forEach(function(listener) {
-                listener(value);
-            });
+            this.listeners.forEach(function(listener) { listener(value); });
             this.lastMessage = value;
         }
     };

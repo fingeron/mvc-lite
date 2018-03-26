@@ -6,14 +6,18 @@
                 result = {};
             for(var w = 0; w < words.length; w++) {
                 if(words[w] === 'in' && w > 0 && w < (words.length-1)) {
-                    try {
-                        with(comp.$scope) {
-                            result.array = eval(words[w+1]);
-                        }
-                    } catch(err) {
-                        throw err;
-                    }
+                    result.array = comp.evalWithScope(words[w+1]);
                     result.varName = words[w-1];
+                }
+                if(words[w] === 'let' && w < (words.length-2)) {
+                    var varName = words[++w], varType = words[++w];
+                    switch (varType) {
+                        case 'index':
+                            result.indexVarName = varName;
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
             return result;

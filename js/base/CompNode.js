@@ -8,8 +8,10 @@
         this.children = [];
     };
 
-    CompNode.prototype.compare = function(comp) {
+    CompNode.prototype.compare = function(comp, options) {
         var updated = false, $scope = comp.$scope;
+        // Compare options:
+        var isRecursive = options && options.recursive;
 
         if(Array.isArray(this.viewNode.directives)) {
             var directives = this.viewNode.directives,
@@ -98,9 +100,13 @@
                 $scope[iterator.varName] = tempVal;
                 viewNode.directives[tempDirectivePos] = tempDirective;
             } else {
-                this.children.forEach(function(child) {
-                    child.compare(comp);
-                });
+                var c, child, wasUpdated;
+                for(c = 0; c < this.children.length; c++) {
+                    child = this.children[c];
+                    wasUpdated = child.compare(comp, options);
+                    if(isRecursive && child.isComponent() && !wasUpdated)
+                        child.comp.update(options);
+                }
             }
         } else {
             // If there were changes, generate a new node.
@@ -116,12 +122,13 @@
             if(newNode.isComponent())
                 newNode.bootstrap(comp);
         }
+        return updated;
     };
 
     CompNode.prototype.appendChild = function(child) {
         this.children.push(child);
         child.parent = this;
-        if(child.self) {
+        if(this.self && child.self) {
             this.self.appendChild(child.self);
         }
     };

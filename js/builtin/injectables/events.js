@@ -11,33 +11,21 @@
                 var regEx = new RegExp("^(.+)\\((.*)\\)$");
                 matches = events[event].match(regEx);
 
-                if(!Array.isArray(matches) || matches.length < 2)
+                if(!Array.isArray(matches) || matches.length < 2) {
                     throw (this.name + ": Invalid statement, expecting: [event: func()]");
+                }
 
                 funcName = matches[1];
                 variables = matches[2].split(',');
 
                 for(var i = 0; i < variables.length; i++) {
-                    try {
-                        with(comp.$scope) {
-                            variables[i] = eval(variables[i]);
-                        }
-                    } catch(err) {
-                        throw (this.name + ": " + err.message)
-                    }
+                    variables[i] = comp.evalWithScope(variables[i]);
                 }
 
                 events[event] = {
                     variables: variables,
                     func: function(funcName, variables, el) {
-                        var func;
-                        try {
-                            with(comp.$scope) {
-                                func = eval(funcName);
-                            }
-                        } catch(err) {
-                            throw (this.name + ": " + err.message)
-                        }
+                        var func = comp.evalWithScope(funcName);
                         if(typeof func === 'function')
                             func.apply(el, variables);
                     }.bind(this, funcName, variables)

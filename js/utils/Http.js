@@ -3,8 +3,9 @@
     var permaParams = {}, paramSubscriptions = {};
 
     var Http = {
-        get: function(url, data, callback) {
-            var xhr = new XMLHttpRequest();
+        get: function(url, data, callback, errCallback) {
+            var xhr = new XMLHttpRequest(),
+                options = data.options || {};
 
             if(typeof data.headers === 'object') {
                 for(var header in data.headers) if(data.headers.hasOwnProperty(header)) {
@@ -14,16 +15,19 @@
 
             url += getParamString(permaParams, data.params);
 
-            xhr.open('GET', url, true);
+            xhr.open('GET', url, data.async);
 
             xhr.onreadystatechange = function() {
-                if(xhr.status === 200 && xhr.readyState === 4) {
-                    handleResponse(JSON.parse(xhr.responseText), callback);
+                if(xhr.readyState === 4) {
+                    if(xhr.status === 200)
+                        handleResponse(options.plainText ? xhr.responseText : JSON.parse(xhr.responseText), callback);
+                    else if(typeof errCallback === 'function')
+                        errCallback(xhr.responseText);
                 }
             };
             xhr.send();
         },
-        post: function(url, data, callback) {
+        post: function(url, data, callback, errCallback) {
             var xhr = new XMLHttpRequest();
 
             url += getParamString(permaParams, data.params);
@@ -42,8 +46,12 @@
             }
 
             xhr.onreadystatechange = function() {
-                if(xhr.status === 200 && xhr.readyState === 4) {
-                    handleResponse(JSON.parse(xhr.responseText), callback);
+                if(xhr.readyState === 4) {
+                    var response = JSON.parse(xhr.responseText);
+                    if(xhr.status === 200)
+                        handleResponse(response, callback);
+                    else if(typeof errCallback === 'function')
+                        errCallback(response);
                 }
             };
             xhr.send(JSON.stringify(data));

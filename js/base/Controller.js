@@ -6,17 +6,12 @@
         this.constructor = constructor;
     };
 
-    Controller.prototype.generateComponent = function(el, parent, inputs) {
+    Controller.prototype.generateComponent = function(el, parent, inputs, callback) {
         // Creating new scope object
         var $scope = {};
 
         // Generating new component
-        var comp = new global.Base.Component(el, parent, $scope);
-
-        // Keeping the element's content as original HTML
-        if(el.innerHTML.length > 0) {
-            comp.subView = new global.Base.View('content-outlet', null, el.innerHTML);
-        }
+        var comp = new global.Base.Component(this.name, el, parent, $scope);
 
         // If inputs assigning them to comp
         if(typeof inputs === 'object')
@@ -38,8 +33,9 @@
         this.constructor.call(this, $scope, comp.update.bind(comp));
 
         // Eventually setting the view for the component
-        comp.setView(this.view.generate(comp));
-
+        this.view.generate(comp, function(componentTree) {
+            comp.setView(componentTree);
+        });
         return comp;
     };
 

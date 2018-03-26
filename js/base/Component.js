@@ -1,6 +1,7 @@
 (function(global) {
 
-    var Component = function(el, parent, $scope) {
+    var Component = function(name, el, parent, $scope) {
+        this.name = name;
         this.el = el;
         if(parent instanceof Component) {
             this.parent = parent;
@@ -16,32 +17,38 @@
         this.el = compNode.self;
     };
 
-    Component.prototype.update = function() {
-        if(this.nodeTree instanceof global.Base.CompNode)
-            this.nodeTree.compare(this);
+    Component.prototype.update = function(options) {
+        // Starting update process
+        if(this.nodeTree instanceof global.Base.CompNode) {
+            this.nodeTree.compare(this, options);
+        }
     };
 
     Component.prototype.getInput = function(name, defaultValue) {
-        if(this.inputs && this.inputs.hasOwnProperty(name))
-            return this.inputs[name];
-        else {
+        if(this.inputs && this.inputs.hasOwnProperty(name)) {
+            if(typeof this.inputs[name] !== 'undefined' || typeof defaultValue === 'undefined')
+                return this.inputs[name];
+            else
+                return defaultValue;
+        } else {
             return defaultValue;
         }
     };
 
-    Component.prototype.evalWithScope = function(statement) {
+    Component.prototype.evalWithScope = function($) {
         var result;
         try {
-            with(this.$scope) {
-                result = eval(statement);
-            }
+            with(this.$scope) { result = eval($); }
         } catch(err) {
-            console.error(err.message);
+            console.error('[Component:' + this.name + '] - ' + err.message);
         }
         return result;
     };
 
     Component.prototype.onDestroy = function() {
+        if(typeof this.$scope.onDestroy === 'function')
+            this.$scope.onDestroy();
+
         if(Array.isArray(this.children))
             while(this.children.length > 0)
                 this.children[0].onDestroy();

@@ -25,13 +25,9 @@
             }
 
             function isIgnored(property) {
-                if(Array.isArray(ignore)) {
-                    for(var i = 0; i < ignore.length; i++) {
-                        if(property === ignore[i]) {
-                            return true;
-                        }
-                    }
-                } else if(property === ignore)
+                if(Array.isArray(ignore))
+                    return ignore.indexOf(property) >= 0;
+                else if(property === ignore)
                     return true;
 
                 return false;

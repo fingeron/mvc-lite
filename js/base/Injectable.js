@@ -25,13 +25,7 @@
     };
 
     Injectable.prototype.getter = function(statement, comp) {
-        var result;
-        try {
-            with(comp.$scope) { result = eval(statement); }
-        } catch(err) {
-            console.error(TAG, this.name + ':', "Couldn't evaluate '" + statement + "'.");
-        }
-        return result;
+        return comp.evalWithScope(statement);
     };
 
     Injectable.prototype.compare = function(oldVal, newVal) {

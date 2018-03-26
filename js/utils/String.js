@@ -45,7 +45,7 @@
         },
         numberSeparator: function(value, separator) {
             var parts = value.toString().split('.'),
-                number = parts[0];
+                number = parts[0].replace(/[^\d]/g, '');
 
             if(typeof separator === 'undefined')
                 separator = ',';

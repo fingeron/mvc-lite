@@ -10,18 +10,20 @@
             this.templateSrc = template;
     };
 
-    View.prototype.loadTemplate = function(relPath) {
-        var path = viewOptions.templatesFolder + '/' + relPath + this.name + '.html';
+    View.prototype.loadTemplate = function(relPath, callback) {
+        var _this = this,
+            path = viewOptions.templatesFolder + '/' + relPath + this.name + '.html',
+            options = { plainText: true };
+
         path = path.replace(/\/\//g, '/');
 
-        this.templateSrc = getTemplate(path);
-
-        function getTemplate(path) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', path, false);
-            xhr.send();
-            return xhr.responseText;
-        }
+        global.Utils.Http.get(path+'?v='+(+new Date()), {options: options}, function(response) {
+            _this.templateSrc = response;
+            callback(true);
+        }, function(err) {
+            console.error(err);
+            callback(false);
+        });
     };
 
     View.prototype.buildNodeTree = function() {
@@ -49,17 +51,24 @@
         }
     };
 
-    View.prototype.generate = function(comp) {
-        if(!this.nodeTree) {
-            this.loadTemplate(this.relPath);
-            this.buildNodeTree();
-        }
+    View.prototype.generate = function(comp, callback) {
+        var _this = this;
 
-        var componentTree = new global.Base.CompNode(this.nodeTree);
-        for(var c = 0; c < this.nodeTree.children.length; c++) {
-            componentTree.appendChild(this.nodeTree.children[c].generate(comp));
+        if(!this.nodeTree) {
+            this.loadTemplate(this.relPath, function(success) {
+                if(success) {
+                    _this.buildNodeTree();
+                    _this.generate(comp, callback);
+                } else
+                    console.error("[View:" + _this.name + "] Error loading view file.");
+            });
+        } else {
+            var componentTree = new global.Base.CompNode(this.nodeTree);
+            for(var c = 0; c < this.nodeTree.children.length; c++) {
+                componentTree.appendChild(this.nodeTree.children[c].generate(comp));
+            }
+            callback(componentTree);
         }
-        return componentTree;
     };
 
     global.Base = global.Base || {};

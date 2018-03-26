@@ -8,15 +8,9 @@
         getter: function(statement, comp) {
             var classes = global.Utils.String.toDictionary(statement),
                 value;
-            try {
-                with(comp.$scope) {
-                    for(var className in classes) if(classes.hasOwnProperty(className)) {
-                        value = eval(classes[className]);
-                        classes[className] = !!value;
-                    }
-                }
-            } catch(err) {
-                throw { message: this.name + ": " + err.message };
+            for(var className in classes) if(classes.hasOwnProperty(className)) {
+                value = comp.evalWithScope(classes[className]);
+                classes[className] = !!value;
             }
             return classes;
         },
