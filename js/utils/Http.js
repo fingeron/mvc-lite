@@ -15,7 +15,7 @@
 
             url += getParamString(permaParams, data.params);
 
-            xhr.open('GET', url, data.async);
+            xhr.open('GET', url, true);
 
             xhr.onreadystatechange = function() {
                 if(xhr.readyState === 4) {

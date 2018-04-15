@@ -1,10 +1,10 @@
 (function(global) {
 
-    var Bootstrap = function(el, parent, inputs) {
+    var Bootstrap = function(el, parent, inputs, cb) {
         if(el.nodeType === 1) {
             var controller = getControllerFromEl(el);
             if(controller instanceof global.Base.Controller) {
-                return controller.generateComponent(el, parent, inputs);
+                return controller.generateComponent(el, parent, inputs, cb);
             } else
                 throw { message: "Controller " + el.getAttribute('controller') + " not found." };
         } else

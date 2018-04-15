@@ -104,8 +104,14 @@
                 for(c = 0; c < this.children.length; c++) {
                     child = this.children[c];
                     wasUpdated = child.compare(comp, options);
-                    if(isRecursive && child.isComponent() && !wasUpdated)
-                        child.comp.update(options);
+                    if(isRecursive && child.isComponent() && !wasUpdated) {
+                        if(child.comp)
+                            child.comp.update(options);
+                        else
+                            setTimeout(function(child, options) {
+                                if(child.comp) child.comp.update(options);
+                            }, 0, child, options);
+                    }
                 }
             }
         } else {
@@ -186,8 +192,10 @@
     };
 
     CompNode.prototype.bootstrap = function(parent) {
-        this.comp = global.Core.Bootstrap(this.self, parent, this.inputs);
-        this.self = this.comp.nodeTree.self;
+        global.Core.Bootstrap(this.self, parent, this.inputs, function(comp) {
+            this.comp = comp;
+            this.self = comp.nodeTree.self;
+        }.bind(this));
     };
 
     global.Base = global.Base || {};

@@ -8,21 +8,22 @@
 
         if(template)
             this.templateSrc = template;
+
+        this.loadTemplate(relPath);
     };
 
-    View.prototype.loadTemplate = function(relPath, callback) {
+    View.prototype.loadTemplate = function(relPath) {
         var _this = this,
             path = viewOptions.templatesFolder + '/' + relPath + this.name + '.html',
+            cacheSuffix = global.ENV ? global.ENV.Version : '',
             options = { plainText: true };
 
         path = path.replace(/\/\//g, '/');
 
-        global.Utils.Http.get(path+'?v='+(+new Date()), {options: options}, function(response) {
+        global.Utils.Http.get(path+'?v='+encodeURI(cacheSuffix), {options: options}, function(response) {
             _this.templateSrc = response;
-            callback(true);
         }, function(err) {
             console.error(err);
-            callback(false);
         });
     };
 
@@ -54,20 +55,21 @@
     View.prototype.generate = function(comp, callback) {
         var _this = this;
 
-        if(!this.nodeTree) {
-            this.loadTemplate(this.relPath, function(success) {
-                if(success) {
-                    _this.buildNodeTree();
-                    _this.generate(comp, callback);
-                } else
-                    console.error("[View:" + _this.name + "] Error loading view file.");
-            });
+        if(!this.templateSrc) {
+            setTimeout(function() {
+                this.generate(comp, callback);
+            }.bind(this), 0);
         } else {
+            if(!this.nodeTree)
+                this.buildNodeTree();
+
             var componentTree = new global.Base.CompNode(this.nodeTree);
             for(var c = 0; c < this.nodeTree.children.length; c++) {
                 componentTree.appendChild(this.nodeTree.children[c].generate(comp));
             }
-            callback(componentTree);
+
+            if(typeof callback === "function")
+                callback(componentTree);
         }
     };
 

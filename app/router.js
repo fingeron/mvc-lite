@@ -2,8 +2,7 @@
 
     var appRoutes = [
         { path: '', redirect: 'home' },
-        { path: 'home', controller: 'main-layout' },
-        { path: 'about', controller: 'about' }
+        { path: 'home', controller: 'main-layout' }
     ];
 
     new global.App.Router(appRoutes);

@@ -11,9 +11,10 @@
                 controllerName = Router.nextController(compNode),
                 controller = global.App.getController(controllerName);
 
-            if(controller instanceof global.Base.Controller) {
+            if(controller instanceof global.Base.Controller)
                 compNode.self.setAttribute('controller', controllerName);
-            }
+            else
+                throw TAG + ' could not find controller "' + controllerName + '".';
         }
     });
 

@@ -9,7 +9,10 @@
 <body>
     <div controller="app"></div>
 
-    <!-- Main.js -->
-    <script src="main.js"></script>
+    <script>
+        (function(global) {
+            global.App.Bootstrap('app');
+        })(Function('return this')());
+    </script>
 </body>
 </html>

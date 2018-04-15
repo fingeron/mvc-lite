@@ -35,6 +35,8 @@
         // Eventually setting the view for the component
         this.view.generate(comp, function(componentTree) {
             comp.setView(componentTree);
+            if(typeof callback === 'function')
+                callback(comp);
         });
         return comp;
     };

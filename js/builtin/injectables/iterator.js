@@ -6,7 +6,7 @@
                 result = {};
             for(var w = 0; w < words.length; w++) {
                 if(words[w] === 'in' && w > 0 && w < (words.length-1)) {
-                    result.array = comp.evalWithScope(words[w+1]);
+                    result.array = comp.evalWithScope(words[w+1], { type: 'array' });
                     result.varName = words[w-1];
                 }
                 if(words[w] === 'let' && w < (words.length-2)) {

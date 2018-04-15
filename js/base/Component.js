@@ -3,6 +3,7 @@
     var Component = function(name, el, parent, $scope) {
         this.name = name;
         this.el = el;
+        this.processing = false;
         if(parent instanceof Component) {
             this.parent = parent;
             parent.children = parent.children || [];
@@ -19,8 +20,10 @@
 
     Component.prototype.update = function(options) {
         // Starting update process
-        if(this.nodeTree instanceof global.Base.CompNode) {
+        if(this.nodeTree instanceof global.Base.CompNode && !this.processing) {
+            this.processing = true;
             this.nodeTree.compare(this, options);
+            this.processing = false;
         }
     };
 
@@ -35,14 +38,28 @@
         }
     };
 
-    Component.prototype.evalWithScope = function($) {
+    Component.prototype.evalWithScope = function($, options) {
         var result;
         try {
             with(this.$scope) { result = eval($); }
         } catch(err) {
-            console.error('[Component:' + this.name + '] - ' + err.message);
+            this.error(err.message);
         }
+
+        options = options || {};
+        if(options.type) {
+            if(options.type === 'array' && !Array.isArray(result)) {
+                this.error($ + ' is not an array.');
+                return [];
+            }
+        }
+
         return result;
+    };
+
+    Component.prototype.error = function(message) {
+        var base = '[Component:' + this.name + ']';
+        console.error(base, message)
     };
 
     Component.prototype.onDestroy = function() {

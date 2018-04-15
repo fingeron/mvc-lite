@@ -5,10 +5,11 @@
             "Sep", "Oct", "Nov", "Dec"];
 
     var DateFuncs = {
+        // DD/MM/YYYY
         getDateString: function(dateObject, separator) {
             separator = separator || '/';
 
-            var day = dateObject.getDate()+1,
+            var day = dateObject.getDate(),
                 month = dateObject.getMonth()+1,
                 year = dateObject.getFullYear();
 
@@ -17,6 +18,7 @@
 
             return [day, month, year].join(separator);
         },
+        // ddd, MMM YYYY
         getDayString: function(dateObject) {
             var month = dateObject.getMonth()+1,
                 day = dateObject.getDay(),
@@ -24,13 +26,13 @@
 
             return days[day] + ', ' + months[month-1] + ' ' + date;
         },
+        // HH:mm
         getTimeString: function(dateObject) {
             var hour = dateObject.getHours(), minutes = dateObject.getMinutes();
 
             if(hour < 10) hour = '0' + hour;
             if(minutes < 10) minutes = '0' + minutes;
 
-            // HH:MM
             return [hour, minutes].join(':');
         }
     };

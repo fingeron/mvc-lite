@@ -30,38 +30,81 @@
 })(Function('return this')());
 (function(global) {
 
+    var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
+            "Sep", "Oct", "Nov", "Dec"];
+
+    var DateFuncs = {
+        // DD/MM/YYYY
+        getDateString: function(dateObject, separator) {
+            separator = separator || '/';
+
+            var day = dateObject.getDate(),
+                month = dateObject.getMonth()+1,
+                year = dateObject.getFullYear();
+
+            if(day < 10) day = '0' + day;
+            if(month < 10) month = '0' + month;
+
+            return [day, month, year].join(separator);
+        },
+        // ddd, MMM YYYY
+        getDayString: function(dateObject) {
+            var month = dateObject.getMonth()+1,
+                day = dateObject.getDay(),
+                date = dateObject.getDate();
+
+            return days[day] + ', ' + months[month-1] + ' ' + date;
+        },
+        // HH:mm
+        getTimeString: function(dateObject) {
+            var hour = dateObject.getHours(), minutes = dateObject.getMinutes();
+
+            if(hour < 10) hour = '0' + hour;
+            if(minutes < 10) minutes = '0' + minutes;
+
+            return [hour, minutes].join(':');
+        }
+    };
+
+    global.Utils = global.Utils || {};
+    global.Utils.Date = DateFuncs;
+
+})(Function('return this')());
+(function(global) {
+
+    var permaParams = {}, paramSubscriptions = {};
+
     var Http = {
-        get: function(url, data, callback) {
-            var xhr = new XMLHttpRequest();
+        get: function(url, data, callback, errCallback) {
+            var xhr = new XMLHttpRequest(),
+                options = data.options || {};
 
             if(typeof data.headers === 'object') {
                 for(var header in data.headers) if(data.headers.hasOwnProperty(header)) {
                     xhr.setRequestHeader(header, data.headers[header]);
                 }
             }
-            if(typeof data.params === 'object') {
-                var urlParams = '?';
-                for(var param in data.params) if(data.params.hasOwnProperty(param)) {
-                    if(Array.isArray(data.params[param])) {
-                        for(var i = 0; i < data.params[param].length; i++)
-                            urlParams += param + '=' + data.params[param][i] + '&';
-                    } else
-                        urlParams += param + '=' + data.params[param] + '&';
-                }
-                url += urlParams;
-            }
+
+            url += getParamString(permaParams, data.params);
 
             xhr.open('GET', url, true);
 
             xhr.onreadystatechange = function() {
-                if(xhr.status === 200 && xhr.readyState === 4) {
-                    callback(JSON.parse(xhr.responseText));
+                if(xhr.readyState === 4) {
+                    if(xhr.status === 200)
+                        handleResponse(options.plainText ? xhr.responseText : JSON.parse(xhr.responseText), callback);
+                    else if(typeof errCallback === 'function')
+                        errCallback(xhr.responseText);
                 }
             };
             xhr.send();
         },
-        post: function(url, data, callback) {
+        post: function(url, data, callback, errCallback) {
             var xhr = new XMLHttpRequest();
+
+            url += getParamString(permaParams, data.params);
+
             xhr.open('POST', url, true);
 
             // analyse request data
@@ -70,20 +113,71 @@
                     xhr.setRequestHeader(header, data.headers[header]);
                 }
             }
-
-            if (typeof data.body === 'object') {
+            if(typeof data.body === 'object') {
                 data = data.body;
                 xhr.setRequestHeader('Content-Type', 'application/json');
             }
 
             xhr.onreadystatechange = function() {
-                if(xhr.status === 200 && xhr.readyState === 4) {
-                    callback(JSON.parse(xhr.responseText));
+                if(xhr.readyState === 4) {
+                    var response = JSON.parse(xhr.responseText);
+                    if(xhr.status === 200)
+                        handleResponse(response, callback);
+                    else if(typeof errCallback === 'function')
+                        errCallback(response);
                 }
             };
             xhr.send(JSON.stringify(data));
+        },
+
+        updatePermaParam: function(key, value) {
+            if(typeof value === 'undefined')
+                delete permaParams[key];
+            else
+                permaParams[key] = value;
+        },
+
+        subscribeToResponseParam: function(param, listener) {
+            if(!(paramSubscriptions[param] instanceof global.Utils.Observable))
+                paramSubscriptions[param] = new global.Utils.Observable();
+
+            return paramSubscriptions[param].subscribe(listener);
         }
     };
+
+    function handleResponse(response, callback) {
+        for(var param in paramSubscriptions)
+            if(paramSubscriptions.hasOwnProperty(param))
+                if(response.hasOwnProperty(param))
+                    paramSubscriptions[param].next(response[param]);
+        callback(response);
+    }
+
+    function getParamString() {
+        var params = {};
+        for(var i = 0; i < arguments.length; i++) {
+            var paramsObj = arguments[i];
+            for(var p in paramsObj) if(paramsObj.hasOwnProperty(p))
+                params[p] = paramsObj[p];
+        }
+
+        var paramString;
+        for(var param in params) if(params.hasOwnProperty(param)) {
+            if(!paramString) paramString = '?';
+            switch(typeof params[param]) {
+                case 'object':
+                    if(Array.isArray(params[param]))
+                        for(var a = 0; a < params[param].length; a++)
+                            paramString += (param + '=' + params[param][a] + '&');
+                    break;
+                default:
+                    paramString += (param + '=' + params[param] + '&');
+                    break;
+            }
+        }
+
+        return (paramString && paramString.substr(0, paramString.length-1) || '');
+    }
 
     global.Utils = global.Utils || {};
     global.Utils.Http = Http;
@@ -116,13 +210,9 @@
             }
 
             function isIgnored(property) {
-                if(Array.isArray(ignore)) {
-                    for(var i = 0; i < ignore.length; i++) {
-                        if(property === ignore[i]) {
-                            return true;
-                        }
-                    }
-                } else if(property === ignore)
+                if(Array.isArray(ignore))
+                    return ignore.indexOf(property) >= 0;
+                else if(property === ignore)
                     return true;
 
                 return false;
@@ -156,16 +246,11 @@
         },
 
         unsubscribe: function(listener) {
-            for(var i = this.listeners.length - 1; i >= 0; i--) {
-                if(this.listeners[i] === listener)
-                    this.listeners.splice(i, 1);
-            }
+            this.listeners.splice(this.listeners.indexOf(listener), 1);
         },
 
         next: function(value) {
-            this.listeners.forEach(function(listener) {
-                listener(value);
-            });
+            this.listeners.forEach(function(listener) { listener(value); });
             this.lastMessage = value;
         }
     };
@@ -193,14 +278,24 @@
             });
             return arr;
         },
-        toDictionary: function(str, separator, equalizer) {
+        toDictionary: function(str, separator, equalizer, regexr) {
             if(typeof separator !== 'string')
                 separator = ',';
             if(typeof equalizer !== 'string')
                 equalizer = ':';
-            var entries = str.split(separator),
+
+            var entries = regexr ? str.split(regexr) : str.split(separator),
                 matchGroups,
                 dic = {};
+
+            // Clean empty default matches
+            for(var e = 0; e < entries.length; e++) {
+                if(entries[e].length === 0)
+                    entries.splice(e--, 1);
+                else
+                    entries[e] = entries[e].trim();
+            }
+
             entries.forEach(function(entry) {
                 var regexp = new RegExp('([\\w-]+)' + equalizer + ' *(.+)');
                 matchGroups = regexp.exec(entry.trim());
@@ -208,11 +303,45 @@
                     dic[matchGroups[1]] = matchGroups[2];
             });
             return dic;
+        },
+        numberSeparator: function(value, separator) {
+            var parts = value.toString().split('.'),
+                number = parts[0].replace(/[^\d]/g, '');
+
+            if(typeof separator === 'undefined')
+                separator = ',';
+
+            var reverseNumber = getReverseString(number);
+
+            var regexp = new RegExp(/(\d)(\d)(\d)(\d)/);
+
+            while(regexp.test(reverseNumber))
+                reverseNumber = reverseNumber.replace(regexp, appendComma);
+
+            value = getReverseString(reverseNumber) + (parts[1] ? '.' + parts[1] : '');
+
+            return value;
+
+            function appendComma(match, p1, p2, p3, p4) {
+                return p1 + p2 + p3 + separator + p4;
+            }
+
+            function getReverseString(str) {
+                var reverse = '';
+                for(var i = str.length-1; i >= 0; i--)
+                    reverse += str[i];
+                return reverse;
+            }
         }
+    };
+
+    var RegExr = {
+        email: new RegExp('[a-z0-9!#$%&\'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&\'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?')
     };
 
     global.Utils = global.Utils || {};
     global.Utils.String = String;
+    global.Utils.RegExp = RegExr;
 
 })(Function('return this')());
 (function(global) {
@@ -225,15 +354,35 @@
         this.children = [];
     };
 
-    CompNode.prototype.compare = function(comp) {
+    CompNode.prototype.compare = function(comp, options) {
         var updated = false, $scope = comp.$scope;
+        // Compare options:
+        var isRecursive = options && options.recursive;
 
         if(Array.isArray(this.viewNode.directives)) {
             var directives = this.viewNode.directives,
                 injectable, getterValue, skipped = 0;
             for(var i = 0; i < directives.length; i++) if(directives[i]) {
                 injectable = directives[i].injectable;
+
                 getterValue = injectable.getter(directives[i].statement, comp);
+
+                // Checking for pipes and analyzing them
+                if(Array.isArray(directives[i].pipes)) {
+                    var p, pipeObj, pipe;
+                    for(p = 0; p < directives[i].pipes.length; p++) {
+                        pipeObj = directives[i].pipes[p];
+                        pipe = global.App.getPipe(pipeObj.name);
+                        if(pipe instanceof global.Base.Pipe) {
+                            var data;
+                            if(pipeObj.dataStatement)
+                                data = comp.evalWithScope(pipeObj.dataStatement);
+
+                            // Finally transform the value and apply it
+                            getterValue = pipe.transform(getterValue, data);
+                        }
+                    }
+                }
 
                 // If injectable getter with current scope result is
                 // different from current one, update the CompNode.
@@ -297,9 +446,19 @@
                 $scope[iterator.varName] = tempVal;
                 viewNode.directives[tempDirectivePos] = tempDirective;
             } else {
-                this.children.forEach(function(child) {
-                    child.compare(comp);
-                });
+                var c, child, wasUpdated;
+                for(c = 0; c < this.children.length; c++) {
+                    child = this.children[c];
+                    wasUpdated = child.compare(comp, options);
+                    if(isRecursive && child.isComponent() && !wasUpdated) {
+                        if(child.comp)
+                            child.comp.update(options);
+                        else
+                            setTimeout(function(child, options) {
+                                if(child.comp) child.comp.update(options);
+                            }, 0, child, options);
+                    }
+                }
             }
         } else {
             // If there were changes, generate a new node.
@@ -315,12 +474,13 @@
             if(newNode.isComponent())
                 newNode.bootstrap(comp);
         }
+        return updated;
     };
 
     CompNode.prototype.appendChild = function(child) {
         this.children.push(child);
         child.parent = this;
-        if(child.self) {
+        if(this.self && child.self) {
             this.self.appendChild(child.self);
         }
     };
@@ -378,8 +538,10 @@
     };
 
     CompNode.prototype.bootstrap = function(parent) {
-        this.comp = global.Core.Bootstrap(this.self, parent, this.inputs);
-        this.self = this.comp.nodeTree.self;
+        global.Core.Bootstrap(this.self, parent, this.inputs, function(comp) {
+            this.comp = comp;
+            this.self = comp.nodeTree.self;
+        }.bind(this));
     };
 
     global.Base = global.Base || {};
@@ -388,8 +550,10 @@
 })(Function('return this')());
 (function(global) {
 
-    var Component = function(el, parent, $scope) {
+    var Component = function(name, el, parent, $scope) {
+        this.name = name;
         this.el = el;
+        this.processing = false;
         if(parent instanceof Component) {
             this.parent = parent;
             parent.children = parent.children || [];
@@ -404,32 +568,54 @@
         this.el = compNode.self;
     };
 
-    Component.prototype.update = function() {
-        if(this.nodeTree instanceof global.Base.CompNode)
-            this.nodeTree.compare(this);
+    Component.prototype.update = function(options) {
+        // Starting update process
+        if(this.nodeTree instanceof global.Base.CompNode && !this.processing) {
+            this.processing = true;
+            this.nodeTree.compare(this, options);
+            this.processing = false;
+        }
     };
 
     Component.prototype.getInput = function(name, defaultValue) {
-        if(this.inputs && this.inputs.hasOwnProperty(name))
-            return this.inputs[name];
-        else {
+        if(this.inputs && this.inputs.hasOwnProperty(name)) {
+            if(typeof this.inputs[name] !== 'undefined' || typeof defaultValue === 'undefined')
+                return this.inputs[name];
+            else
+                return defaultValue;
+        } else {
             return defaultValue;
         }
     };
 
-    Component.prototype.evalWithScope = function(statement) {
+    Component.prototype.evalWithScope = function($, options) {
         var result;
         try {
-            with(this.$scope) {
-                result = eval(statement);
-            }
+            with(this.$scope) { result = eval($); }
         } catch(err) {
-            console.log(err.message);
+            this.error(err.message);
         }
+
+        options = options || {};
+        if(options.type) {
+            if(options.type === 'array' && !Array.isArray(result)) {
+                this.error($ + ' is not an array.');
+                return [];
+            }
+        }
+
         return result;
     };
 
+    Component.prototype.error = function(message) {
+        var base = '[Component:' + this.name + ']';
+        console.error(base, message)
+    };
+
     Component.prototype.onDestroy = function() {
+        if(typeof this.$scope.onDestroy === 'function')
+            this.$scope.onDestroy();
+
         if(Array.isArray(this.children))
             while(this.children.length > 0)
                 this.children[0].onDestroy();
@@ -455,17 +641,12 @@
         this.constructor = constructor;
     };
 
-    Controller.prototype.generateComponent = function(el, parent, inputs) {
+    Controller.prototype.generateComponent = function(el, parent, inputs, callback) {
         // Creating new scope object
         var $scope = {};
 
         // Generating new component
-        var comp = new global.Base.Component(el, parent, $scope);
-
-        // Keeping the element's content as original HTML
-        if(el.innerHTML.length > 0) {
-            comp.subView = new global.Base.View('content-outlet', null, el.innerHTML);
-        }
+        var comp = new global.Base.Component(this.name, el, parent, $scope);
 
         // If inputs assigning them to comp
         if(typeof inputs === 'object')
@@ -487,8 +668,11 @@
         this.constructor.call(this, $scope, comp.update.bind(comp));
 
         // Eventually setting the view for the component
-        comp.setView(this.view.generate(comp));
-
+        this.view.generate(comp, function(componentTree) {
+            comp.setView(componentTree);
+            if(typeof callback === 'function')
+                callback(comp);
+        });
         return comp;
     };
 
@@ -523,13 +707,7 @@
     };
 
     Injectable.prototype.getter = function(statement, comp) {
-        var result;
-        try {
-            with(comp.$scope) { result = eval(statement); }
-        } catch(err) {
-            console.error(TAG, this.name + ':', "Couldn't evaluate '" + statement + "'.");
-        }
-        return result;
+        return comp.evalWithScope(statement);
     };
 
     Injectable.prototype.compare = function(oldVal, newVal) {
@@ -681,19 +859,15 @@
                         break;
                     }
                 }
-                return wasFound
+                return {
+                    controllers: wasFound
+                };
             } else if(Array.isArray(this.children)) {
-                var child = this.children.filter(function(c) {
+                var child = this.children.find(function(c) {
                     return c.path.length === 1 && c.path[0] === '';
                 });
-                while(Array.isArray(child) && child.length > 0) {
-                    child = child[0];
-                    matchesArr.push(child.controller);
-                    if(Array.isArray(child.children))
-                        child = child.children.filter(function(c) {
-                            return c.path.length === 0;
-                        });
-                }
+                if(child)
+                    return child.checkUrl([''], matchesArr);
             }
             return {
                 controllers: matchesArr
@@ -713,28 +887,27 @@
 
     var View = function(name, relPath, template) {
         this.name = name;
+        this.relPath = relPath;
 
-        if(!template)
-            this.loadTemplate(relPath);
-        else {
+        if(template)
             this.templateSrc = template;
-        }
 
-        this.buildNodeTree();
+        this.loadTemplate(relPath);
     };
 
     View.prototype.loadTemplate = function(relPath) {
-        var path = viewOptions.templatesFolder + '/' + relPath + this.name + '.html';
+        var _this = this,
+            path = viewOptions.templatesFolder + '/' + relPath + this.name + '.html',
+            cacheSuffix = global.ENV ? global.ENV.Version : '',
+            options = { plainText: true };
+
         path = path.replace(/\/\//g, '/');
 
-        this.templateSrc = getTemplate(path);
-
-        function getTemplate(path) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', path, false);
-            xhr.send();
-            return xhr.responseText;
-        }
+        global.Utils.Http.get(path+'?v='+encodeURI(cacheSuffix), {options: options}, function(response) {
+            _this.templateSrc = response;
+        }, function(err) {
+            console.error(err);
+        });
     };
 
     View.prototype.buildNodeTree = function() {
@@ -762,12 +935,25 @@
         }
     };
 
-    View.prototype.generate = function(comp) {
-        var componentTree = new global.Base.CompNode(this.nodeTree);
-        for(var c = 0; c < this.nodeTree.children.length; c++) {
-            componentTree.appendChild(this.nodeTree.children[c].generate(comp));
+    View.prototype.generate = function(comp, callback) {
+        var _this = this;
+
+        if(!this.templateSrc) {
+            setTimeout(function() {
+                this.generate(comp, callback);
+            }.bind(this), 0);
+        } else {
+            if(!this.nodeTree)
+                this.buildNodeTree();
+
+            var componentTree = new global.Base.CompNode(this.nodeTree);
+            for(var c = 0; c < this.nodeTree.children.length; c++) {
+                componentTree.appendChild(this.nodeTree.children[c].generate(comp));
+            }
+
+            if(typeof callback === "function")
+                callback(componentTree);
         }
-        return componentTree;
     };
 
     global.Base = global.Base || {};
@@ -822,6 +1008,10 @@
                         statement: attrValue,
                         pipes: pipes
                     });
+
+                    // Clearing the `pipes` variable
+                    pipes = undefined;
+
                     if(!injectable.keepAttribute) {
                         this.self.removeAttribute(attrName);
                         // Removing attribute will lower 'attrArr.length' by 1.
@@ -846,6 +1036,7 @@
                 // Get value from injectable getter
                 var value = directive.injectable.getter(directive.statement, comp);
 
+                // Checking for pipes and analyzing them
                 if(Array.isArray(directive.pipes)) {
                     var p, pipeObj, pipe;
                     for(p = 0; p < directive.pipes.length; p++) {
@@ -884,11 +1075,18 @@
                     tempDirectivePos = i,
                     childNode;
 
+                if(typeof compNode.iterator.indexVarName === 'string') {
+                    var indexVarName = compNode.iterator.indexVarName,
+                        tempIndexVarValue = $scope[indexVarName];
+                }
+
                 // Removing the directive temporarily
                 this.directives[i] = undefined;
 
                 for(i = 0; i < arr.length; i++) {
                     $scope[compNode.iterator.varName] = arr[i];
+                    // If present, assigning index to indexVarName.
+                    if(indexVarName) $scope[indexVarName] = i;
                     childNode = this.generate(comp);
                     childNode.iteratorValue = arr[i];
                     compNode.appendChild(childNode);
@@ -899,6 +1097,8 @@
                 // Re-assigning values.
                 $scope[compNode.iterator.varName] = tempVal;
                 this.directives[tempDirectivePos] = tempDirective;
+                if(tempIndexVarValue)
+                    $scope[indexVarName] = tempIndexVarValue;
             } else
                 generateChildren(this, compNode);
         }
@@ -928,11 +1128,11 @@
 })(Function('return this')());
 (function(global) {
 
-    var Bootstrap = function(el, parent, inputs) {
+    var Bootstrap = function(el, parent, inputs, cb) {
         if(el.nodeType === 1) {
             var controller = getControllerFromEl(el);
             if(controller instanceof global.Base.Controller) {
-                return controller.generateComponent(el, parent, inputs);
+                return controller.generateComponent(el, parent, inputs, cb);
             } else
                 throw { message: "Controller " + el.getAttribute('controller') + " not found." };
         } else
@@ -966,29 +1166,40 @@
             window.onhashchange = function() {
                 this.navigateTo(location.hash, true);
             }.bind(this);
+            var defaultRoute;
             // Initializing Router
             try {
                 this.routes = routes.map(function(r) {
+                    if(r.setAsDefault)
+                        defaultRoute = r;
                     return new global.Base.Route(r);
                 });
             } catch(err) {
                 throw err;
             }
             this.navigations = 0;
+            this.onStateChange = new global.Utils.Observable();
             routerInstance = this;
+
+            if(defaultRoute)
+                this.defaultRoute = defaultRoute;
+
             this.navigateTo(location.hash);
         } else
-            throw { message: TAG + " 'routes' should be an array of routes." };
+            throw { message: TAG + " Router should accent an array of routes." };
     };
 
     Router.prototype.navigateTo = function(url, fromWindow) {
         // First validate url
-        if(url[0] === '#') {
-            if(url[1] !== '/') {
-                url = url.slice(1, url.length);
-            } else
-                url = url.slice(2, url.length);
-        }
+        if(url[0] === '#')
+            url = url.slice((url[1] !== '/' ? 1 : 2), url.length);
+
+        var pageEl;
+        url = url.split('#');
+        if(url.length > 1)
+            pageEl = url[1];
+        url = url[0];
+
         if(url !== this.currentPath) {
             // An identifier for Router state.
             this.navigating = true;
@@ -1008,15 +1219,18 @@
                         resultsObj.params = global.Utils.String.toDictionary(resultsObj.params, '&', '=');
                     }
                     if(fromWindow)
-                        history.replaceState(null, '', '#/' + url);
+                        history.replaceState(null, '', '#/' + url + (pageEl ? '#' + pageEl : ''));
                     else
-                        history.pushState(null, '', '#/' + url);
+                        history.pushState(null, '', '#/' + url + (pageEl ? '#' + pageEl : ''));
                     this.stateChange(resultsObj)
                 }
+            } else if(this.defaultRoute) {
+                this.navigateTo(this.defaultRoute.path);
             } else
-                console.error("UNKNOWN ROUTE " + url);
+                console.error(TAG, "UNKNOWN ROUTE '" + url + "'. To avoid this error please 'setAsDefault' your main path.");
 
             this.navigating = false;
+            this.onStateChange.next(this.currentPath);
         }
     };
 
@@ -1103,7 +1317,10 @@
                     if(!Array.isArray(this.state.compNodes)) this.state.compNodes = [];
 
                     // Assigning next controller on the stack to nextController
-                    this.state.nextController = this.state.controllers[i+1];
+                    if(i+1 >= this.state.controllers.length)
+                        this.state.nextController = this.state.controllers[0];
+                    else
+                        this.state.nextController = this.state.controllers[i+1];
 
                     // Placing the compNode in it's correct place
                     this.state.compNodes[i] = compNode;
@@ -1132,8 +1349,6 @@
                 }
             }
         }
-        // Only set the router data if the system is not already in routing process
-        // if(changes > 0 && !this.navigating) {
         if(changes > 0) {
             var currUrl = location.hash;
             currUrl = currUrl.split('?')[0] + '?';
@@ -1147,6 +1362,7 @@
             else
                 history.replaceState(null, '', '#/' + currUrl);
 
+            this.onStateChange.next(currUrl);
             this.currentPath = currUrl;
         }
         if(this.state) this.state.params = params;
@@ -1212,8 +1428,11 @@
         Router: getRouter
     };
 
-    function bootstrapApp(componentName) {
+    function bootstrapApp(componentName, options) {
         var TAG = "[Bootstrap]";
+
+        if(typeof options === 'object')
+            global.Utils.Object.updateObject(global.Config, options);
 
         var compEl = document.querySelector('*[controller="' + componentName + '"]');
         if(compEl && compEl.nodeType === 1) {
@@ -1278,6 +1497,34 @@
 })(Function('return this')());
 (function(global) {
 
+    global.App.Injectable('bind-attr', {
+        // Options
+        justModify: true,
+
+        // Functions
+        getter: function(statement, comp) {
+            var attributes = global.Utils.String.toDictionary(statement),
+                value;
+            for(var attr in attributes) if(attributes.hasOwnProperty(attr)) {
+                value = comp.evalWithScope(attributes[attr]);
+                attributes[attr] = value;
+            }
+            return attributes;
+        },
+        modifier: function(compNode, value) {
+            for(var attr in value)
+                if(value.hasOwnProperty(attr)) {
+                    if(value[attr] === false)
+                        compNode.self.removeAttribute(attr);
+                    else
+                        compNode.self.setAttribute(attr, value[attr]);
+                }
+        }
+    });
+
+})(Function('return this')());
+(function(global) {
+
     global.App.Injectable('bind-class', {
         // Options
         justModify: true,
@@ -1286,15 +1533,9 @@
         getter: function(statement, comp) {
             var classes = global.Utils.String.toDictionary(statement),
                 value;
-            try {
-                with(comp.$scope) {
-                    for(var className in classes) if(classes.hasOwnProperty(className)) {
-                        value = eval(classes[className]);
-                        classes[className] = !!value;
-                    }
-                }
-            } catch(err) {
-                throw { message: this.name + ": " + err.message };
+            for(var className in classes) if(classes.hasOwnProperty(className)) {
+                value = comp.evalWithScope(classes[className]);
+                classes[className] = !!value;
             }
             return classes;
         },
@@ -1317,13 +1558,7 @@
 
     global.App.Injectable('bind-if', {
         getter: function(statement, comp) {
-            var result;
-            try {
-                with(comp.$scope) { result = eval(statement); }
-            } catch(err) {
-                throw this.name + ": Couldn't evaluate '" + statement + "'.";
-            }
-            return !!result;
+            return !!(comp.evalWithScope(statement));
         },
         modifier: function(compNode, value) {
             if(!value) {
@@ -1352,41 +1587,34 @@
 
     global.App.Injectable('bind-events', {
         getter: function(statement, comp) {
-            var events = global.Utils.String.toDictionary(statement),
+            var entryRegExp = new RegExp('([a-z]+\\: ?.+?\\(.*?\\)), ?');
+
+            var events = global.Utils.String.toDictionary(statement, false, false, entryRegExp),
                 matches, funcName, variables;
 
             for(var event in events) if(events.hasOwnProperty(event)) {
                 var regEx = new RegExp("^(.+)\\((.*)\\)$");
                 matches = events[event].match(regEx);
 
-                if(!Array.isArray(matches) || matches.length < 2)
+                if(!Array.isArray(matches) || matches.length < 2) {
                     throw (this.name + ": Invalid statement, expecting: [event: func()]");
+                }
 
                 funcName = matches[1];
                 variables = matches[2].split(',');
 
                 for(var i = 0; i < variables.length; i++) {
-                    try {
-                        with(comp.$scope) {
-                            variables[i] = eval(variables[i]);
-                        }
-                    } catch(err) {
-                        throw (this.name + ": " + err.message)
-                    }
+                    variables[i] = comp.evalWithScope(variables[i]);
                 }
 
-                events[event] = function(funcName, variables, el) {
-                    var func;
-                    try {
-                        with(comp.$scope) {
-                            func = eval(funcName);
-                        }
-                    } catch(err) {
-                        throw (this.name + ": " + err.message)
-                    }
-                    if(typeof func === 'function')
-                        func.apply(el, variables);
-                }.bind(this, funcName, variables);
+                events[event] = {
+                    variables: variables,
+                    func: function(funcName, variables, el) {
+                        var func = comp.evalWithScope(funcName);
+                        if(typeof func === 'function')
+                            func.apply(el, variables);
+                    }.bind(this, funcName, variables)
+                };
             }
             return events;
         },
@@ -1399,10 +1627,23 @@
                     } catch(err) {
                         console.error('[Injectable]', err);
                     }
-                }.bind(this, value[event]));
+                }.bind(this, value[event].func));
             }
         },
         compare: function(oldVal, newVal) {
+            for(var event in oldVal) {
+                if(!newVal[event])
+                    return false;
+
+                var oldVars = oldVal[event].variables, newVars = newVal[event].variables;
+                if(oldVars.length !== newVars.length)
+                    return false;
+
+                for(var i = 0; i < oldVars.length; i++) {
+                    if(oldVars[i] !== newVars[i])
+                        return false;
+                }
+            }
             return true;
         }
     });
@@ -1413,14 +1654,8 @@
     global.App.Injectable('input', {
         getter: function(statement, comp) {
             var inputs = global.Utils.String.toDictionary(statement);
-            try {
-                for(var input in inputs) if(inputs.hasOwnProperty(input)) {
-                    with(comp.$scope) {
-                        inputs[input] = eval(inputs[input]);
-                    }
-                }
-            } catch(err) {
-                throw { message: this.name + ": " + err.message };
+            for(var input in inputs) if(inputs.hasOwnProperty(input)) {
+                inputs[input] = comp.evalWithScope(inputs[input]);
             }
             return inputs;
         },
@@ -1448,14 +1683,18 @@
                 result = {};
             for(var w = 0; w < words.length; w++) {
                 if(words[w] === 'in' && w > 0 && w < (words.length-1)) {
-                    try {
-                        with(comp.$scope) {
-                            result.array = eval(words[w+1]);
-                        }
-                    } catch(err) {
-                        throw err;
-                    }
+                    result.array = comp.evalWithScope(words[w+1], { type: 'array' });
                     result.varName = words[w-1];
+                }
+                if(words[w] === 'let' && w < (words.length-2)) {
+                    var varName = words[++w], varType = words[++w];
+                    switch (varType) {
+                        case 'index':
+                            result.indexVarName = varName;
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
             return result;
@@ -1473,6 +1712,28 @@
 })(Function('return this')());
 (function(global) {
 
+    global.App.Injectable('bind-replace', {
+        // Functions
+        modifier: function(compNode, value) {
+            if(compNode.self instanceof HTMLInputElement) {
+                compNode.self.addEventListener('input', function(e) {
+                    if(e && e.preventDefault) e.preventDefault();
+
+                    if(typeof value === 'string')
+                        value = new RegExp(value, 'g');
+
+                    this.value = this.value.replace(value, '');
+                });
+            }
+        },
+        compare: function(oldVal, newVal) {
+            return String(oldVal) === String(newVal);
+        }
+    });
+
+})(Function('return this')());
+(function(global) {
+
     var TAG = "[Router-Outlet]";
 
     global.App.Injectable('router-outlet', {
@@ -1484,9 +1745,10 @@
                 controllerName = Router.nextController(compNode),
                 controller = global.App.getController(controllerName);
 
-            if(controller instanceof global.Base.Controller) {
+            if(controller instanceof global.Base.Controller)
                 compNode.self.setAttribute('controller', controllerName);
-            }
+            else
+                throw TAG + ' could not find controller "' + controllerName + '".';
         }
     });
 
@@ -1501,6 +1763,10 @@
         modifier: function(compNode, value) {
             if(compNode.self instanceof HTMLInputElement)
                 compNode.self.value = value;
+
+            if(typeof value === 'function')
+                value = typeof value;
+
             compNode.self.innerHTML = value;
         }
     });

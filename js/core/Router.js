@@ -32,7 +32,7 @@
 
             this.navigateTo(location.hash);
         } else
-            throw { message: TAG + " 'routes' should be an array of routes." };
+            throw { message: TAG + " Router should accent an array of routes." };
     };
 
     Router.prototype.navigateTo = function(url, fromWindow) {
@@ -40,7 +40,6 @@
         if(url[0] === '#')
             url = url.slice((url[1] !== '/' ? 1 : 2), url.length);
 
-        // TODO: support navigation to EL. Currently supporting the URL state
         var pageEl;
         url = url.split('#');
         if(url.length > 1)
@@ -74,7 +73,7 @@
             } else if(this.defaultRoute) {
                 this.navigateTo(this.defaultRoute.path);
             } else
-                console.error("UNKNOWN ROUTE " + url + ". To avoid this error please 'setAsDefault' your main path.");
+                console.error(TAG, "UNKNOWN ROUTE '" + url + "'. To avoid this error please 'setAsDefault' your main path.");
 
             this.navigating = false;
             this.onStateChange.next(this.currentPath);
@@ -196,8 +195,6 @@
                 }
             }
         }
-        // Only set the router data if the system is not already in routing process
-        // if(changes > 0 && !this.navigating) {
         if(changes > 0) {
             var currUrl = location.hash;
             currUrl = currUrl.split('?')[0] + '?';
@@ -211,6 +208,7 @@
             else
                 history.replaceState(null, '', '#/' + currUrl);
 
+            this.onStateChange.next(currUrl);
             this.currentPath = currUrl;
         }
         if(this.state) this.state.params = params;
