@@ -13,7 +13,7 @@
                 }
             }
 
-            url += getParamString(permaParams, data.params);
+            url += getParamString((data.clean ? {} : permaParams), data.params);
 
             xhr.open('GET', url, true);
 
@@ -40,10 +40,12 @@
                     xhr.setRequestHeader(header, data.headers[header]);
                 }
             }
-            if(typeof data.body === 'object') {
-                data = data.body;
+
+            // analyse request body
+            data = data.body;
+
+            if(typeof data === 'object')
                 xhr.setRequestHeader('Content-Type', 'application/json');
-            }
 
             xhr.onreadystatechange = function() {
                 if(xhr.readyState === 4) {

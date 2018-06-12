@@ -179,8 +179,12 @@
         if(replace) {
             this.children.splice(this.children.indexOf(child), 1, replace);
             this.self.replaceChild(replace.self, child.self);
-        } else if(child.self) {
-            this.self.removeChild(child.self);
+        } else if(child.self && this.self) {
+            for(var n = 0; n < this.self.childNodes.length; n++)
+                if(this.self.childNodes[n] === child.self) {
+                    this.self.removeChild(child.self);
+                    break;
+                }
             child.self = undefined;
         }
     };

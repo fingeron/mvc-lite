@@ -46,15 +46,16 @@
 
                 var wasFound = false;
                 urlParts.splice(0, matchingParts);
-                for(i = 0; i < this.children.length; i++) {
-                    if(this.children[i].checkUrl(urlParts, matchesArr)) {
+                for(i = 0; i < this.children.length && !wasFound; i++) {
+                    var childResults = this.children[i].checkUrl(urlParts, matchesArr);
+                    if(childResults) {
+                        if(childResults.redirect)
+                            return childResults;
                         wasFound = matchesArr;
-                        break;
                     }
                 }
-                return {
-                    controllers: wasFound
-                };
+                return wasFound ? { controllers: wasFound } : wasFound;
+            // This is to handle 'path' && 'path/' to reach the same child.
             } else if(Array.isArray(this.children)) {
                 var child = this.children.find(function(c) {
                     return c.path.length === 1 && c.path[0] === '';

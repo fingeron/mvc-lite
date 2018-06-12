@@ -12,7 +12,7 @@
             if(typeof value === 'function')
                 value = typeof value;
 
-            compNode.self.innerHTML = value;
+            compNode.self.innerText = value;
         }
     });
 

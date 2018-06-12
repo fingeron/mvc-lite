@@ -36,7 +36,7 @@
         modifier: function(compNode, value) {
             for(var event in value) if(value.hasOwnProperty(event)) {
                 compNode.self.addEventListener(event, function(callback, e) {
-                    if(e && e.preventDefault) e.preventDefault();
+                    (e && e.preventDefault) ? e.preventDefault() : e.returnValue = false;
                     try {
                         callback(e.currentTarget);
                     } catch(err) {

@@ -1,6 +1,15 @@
 (function(global) {
 
-    var String = {
+    if (typeof String.prototype.format !== 'function') {
+        String.prototype.format = function () {
+            var args = arguments[0] instanceof Array ? arguments[0] : arguments;
+            return this.replace(/{(\d+)}/g, function (match, number) {
+                return typeof args[number] != 'undefined' ? args[number] : match;
+            });
+        };
+    }
+
+    var _String = {
         // "name: Tal, city: Or Yehuda" ---> [{key: name, value: Tal}, {key: city, value: "Or Yehuda"}]
         toKeyValueArray: function(str, separator) {
             if(typeof separator !== 'string')
@@ -45,19 +54,19 @@
         },
         numberSeparator: function(value, separator) {
             var parts = value.toString().split('.'),
-                number = parts[0].replace(/[^\d]/g, '');
+                number = parseInt(parts[0].replace(/[^\d]/g, ''));
 
             if(typeof separator === 'undefined')
                 separator = ',';
 
-            var reverseNumber = getReverseString(number);
+            var reverseNumber = getReverseString(number.toString());
 
             var regexp = new RegExp(/(\d)(\d)(\d)(\d)/);
 
             while(regexp.test(reverseNumber))
                 reverseNumber = reverseNumber.replace(regexp, appendComma);
 
-            value = getReverseString(reverseNumber) + (parts[1] ? '.' + parts[1] : '');
+            value = getReverseString(reverseNumber) + (parts.length > 1 ? '.' + parts[1] : '');
 
             return value;
 
@@ -75,11 +84,11 @@
     };
 
     var RegExr = {
-        email: new RegExp('[a-z0-9!#$%&\'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&\'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?')
+        email: new RegExp('[a-z0-9!#$%&\'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&\'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?'),
     };
 
     global.Utils = global.Utils || {};
-    global.Utils.String = String;
+    global.Utils.String = _String;
     global.Utils.RegExp = RegExr;
 
 })(Function('return this')());

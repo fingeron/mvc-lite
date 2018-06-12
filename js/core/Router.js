@@ -32,10 +32,14 @@
 
             this.navigateTo(location.hash);
         } else
-            throw { message: TAG + " Router should accent an array of routes." };
+            throw { message: TAG + " Router should accept an array of routes." };
     };
 
     Router.prototype.navigateTo = function(url, fromWindow) {
+        //TODO: remove this.
+        if(url.indexOf(';') >= 0) url = url.replace(/;/g, '?');
+        if(url[0] === '/') url = url.slice(1, url.length);
+
         // First validate url
         if(url[0] === '#')
             url = url.slice((url[1] !== '/' ? 1 : 2), url.length);
@@ -50,6 +54,14 @@
             // An identifier for Router state.
             this.navigating = true;
 
+            var urlParams = url.split('?');
+
+            // Checking if base route changed
+            var baseRoute = urlParams[0],
+                rawParams = (urlParams.length > 1) ? urlParams[1] : '',
+                currentBaseRoute = (this.currentPath || '').split('?')[0],
+                baseRouteChanged = baseRoute !== currentBaseRoute;
+
             // Updating Router variables
             this.navigations++;
             this.lastPath = this.currentPath || url;
@@ -59,6 +71,7 @@
             if(resultsObj) {
                 var results = resultsObj.results;
                 if(results.redirect) {
+                    if(rawParams.length > 0) results.redirect += '?' + rawParams;
                     this.navigateTo(results.redirect);
                 } else {
                     if(typeof resultsObj.params === 'string' && resultsObj.params.length > 0) {
@@ -76,7 +89,7 @@
                 console.error(TAG, "UNKNOWN ROUTE '" + url + "'. To avoid this error please 'setAsDefault' your main path.");
 
             this.navigating = false;
-            this.onStateChange.next(this.currentPath);
+            this.onStateChange.next(this.currentPath, baseRouteChanged);
         }
     };
 

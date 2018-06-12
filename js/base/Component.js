@@ -38,23 +38,22 @@
         }
     };
 
-    Component.prototype.evalWithScope = function($, options) {
-        var result;
+    Component.prototype.evalWithScope = function(_, options) {
         try {
-            with(this.$scope) { result = eval($); }
+            with(this.$scope) { _ = eval(_); }
         } catch(err) {
             this.error(err.message);
         }
 
         options = options || {};
         if(options.type) {
-            if(options.type === 'array' && !Array.isArray(result)) {
-                this.error($ + ' is not an array.');
+            if(options.type === 'array' && !Array.isArray(_)) {
+                this.error(_ + ' is not an array.');
                 return [];
             }
         }
 
-        return result;
+        return _;
     };
 
     Component.prototype.error = function(message) {

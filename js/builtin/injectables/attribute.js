@@ -19,6 +19,8 @@
                 if(value.hasOwnProperty(attr)) {
                     if(value[attr] === false)
                         compNode.self.removeAttribute(attr);
+                    else if(value[attr] === true)
+                        compNode.self.setAttribute(attr, '');
                     else
                         compNode.self.setAttribute(attr, value[attr]);
                 }

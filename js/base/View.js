@@ -15,12 +15,12 @@
     View.prototype.loadTemplate = function(relPath) {
         var _this = this,
             path = viewOptions.templatesFolder + '/' + relPath + this.name + '.html',
-            cacheSuffix = global.ENV ? global.ENV.Version : '',
+            cacheSuffix = global.ENV.Version,
             options = { plainText: true };
 
         path = path.replace(/\/\//g, '/');
 
-        global.Utils.Http.get(path+'?v='+encodeURI(cacheSuffix), {options: options}, function(response) {
+        global.Utils.Http.get(path+'?v='+encodeURIComponent(cacheSuffix), {options: options}, function(response) {
             _this.templateSrc = response;
         }, function(err) {
             console.error(err);
